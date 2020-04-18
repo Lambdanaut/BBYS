@@ -31,6 +31,11 @@ BBY_NAMES = {
 BBY_NAMES_LENGTH = 0
 for _, _ in pairs(BBY_NAMES) do BBY_NAMES_LENGTH += 1 end
 
+TOP_COLLISION = 0
+BOTTOM_COLLISION = 1
+LEFT_COLLISION = 2
+RIGHT_COLLISION = 3
+
 -- Globals
 IN_SPLASH_SCREEN = true
 SPLASH_SCREEN_Y_POS = 0
@@ -236,22 +241,20 @@ function make_player()
 
   player.collide = function(self)
     for _, bby in pairs(bbys) do
-      if self.collider:is_colliding(bby.collider) then
-        if self.v[1] == 0 and self.v[2] == 0 then
-          -- We're not moving. Ignore collision
-          goto continue
-        elseif self.v[2] > 0 then
-          -- Colliding from top
-          self.pos[2] = bby.pos[2] - bby.collider.rect.h
-        elseif self.v[2] < 0 then
-          -- Colliding from bottom
+      if self.collider:is_colliding(bby) then
+        local collision_direction = self.collider:get_collision_direction(bby)
+        if collision_direction == TOP_COLLISION then
+          -- Colliding top
           self.pos[2] = bby.pos[2] + bby.collider.rect.h
-        elseif self.v[1] > 0 then
-          -- Colliding from left
-          self.pos[1] = bby.pos[1] - bby.collider.rect.w
-        elseif self.v[1] < 0 then
-          -- Colliding from right
+        elseif collision_direction == BOTTOM_COLLISION then
+          -- Colliding bottom
+          self.pos[2] = bby.pos[2] - bby.collider.rect.h
+        elseif collision_direction == LEFT_COLLISION then
+          -- Colliding left
           self.pos[1] = bby.pos[1] + bby.collider.rect.w
+        elseif collision_direction == RIGHT_COLLISION then
+          -- Colliding  right
+          self.pos[1] = bby.pos[1] - bby.collider.rect.w
         end
       end
       ::continue::  -- Goto marker
@@ -481,25 +484,21 @@ function make_collider(parent, w, h)
   end
   collider:update_collider()
 
-  collider.is_colliding = function(collider1, collider2)
-    -- Determines if two objects are colliding
-    local top = collider1.parent.pos[2]
-    local bottom = top + collider1.rect.h
-    local left = collider1.parent.pos[1]
-    local right = left + collider1.rect.w
-    local collider2_top = collider2.parent.pos[2]
-    local collider2_bottom = collider2_top + collider2.rect.h
-    local collider2_left = collider2.parent.pos[1]
-    local collider2_right = collider2.parent.pos[1] + collider2.rect.w
-
-    local horizontal_collision = lines_overlapping(left, right, collider2_left, collider2_right)
-    local vertical_collision = lines_overlapping(top, bottom, collider2_top, collider2_bottom)
-
-    return horizontal_collision and vertical_collision
+  collider.is_colliding = function(self, other)
+    return rects_are_colliding(self.rect, other.collider.rect)
   end
 
-  collider.side_detection = function(self, other)
-    local top_hit = self.is_colliding(self.t, other)
+  collider.get_collision_direction = function(self, other)
+    local other = other.collider.rect
+
+    local top_hit = rects_are_colliding(self.t, other)
+    if (top_hit) then return TOP_COLLISION end
+    local bottom_hit = rects_are_colliding(self.b, other)
+    if (bottom_hit) then return BOTTOM_COLLISION end
+    local left_hit = rects_are_colliding(self.l, other)
+    if (left_hit) then return LEFT_COLLISION end
+    local right_hit = rects_are_colliding(self.r, other)
+    if (right_hit) then return RIGHT_COLLISION end
   end
 
   collider.draw = function(self)
@@ -560,6 +559,25 @@ function lines_overlapping(min1, max1, min2, max2)
   return max1 > min2 and max2 > min1
 end
 
+
+-- Rect functions
+
+function rects_are_colliding(r1, r2)
+  -- Determines if two rects are colliding
+  local top = r1.y
+  local bottom = top + r1.h
+  local left = r1.x
+  local right = left + r1.w
+  local r2_top = r2.y
+  local r2_bottom = r2_top + r2.h
+  local r2_left = r2.x
+  local r2_right = r2_left + r2.w
+
+  local horizontal_collision = lines_overlapping(left, right, r2_left, r2_right)
+  local vertical_collision = lines_overlapping(top, bottom, r2_top, r2_bottom)
+
+  return horizontal_collision and vertical_collision
+end
 
 
 __gfx__
