@@ -2,9 +2,8 @@ pico-8 cartridge // http://www.pico-8.com
 version 18
 __lua__
 
-
 -- DEBUG CONTROLS
-DRAW_DEBUG_SPRITES = false
+DEBUG = true
 
 -- Constants
 
@@ -57,35 +56,31 @@ function _update()
     get_splash_screen_input()
   else
     -- Update player physics
-    update_player()
+    player:update()
 
     -- Update bby physics
     for _, bby in pairs(bbys) do 
-      bby:move()
+      bby:update()
     end
   end
 end
 
 function _draw()
-  if DRAW_DEBUG_SPRITES then
-    draw_bby_iterations()
+  if IN_SPLASH_SCREEN then
+    draw_splash_screen()
   else
-    if IN_SPLASH_SCREEN then
-      draw_splash_screen()
-    else
-      -- Clear screen
-      cls()
+    -- Clear screen
+    cls()
 
-      -- Draw the map
-      draw_map() 
+    -- Draw the map
+    draw_map() 
 
-      -- Draw player
-      player:draw()  
+    -- Draw player
+    player:draw()  
 
-      -- Draw the bbys
-      for _, bby in pairs(bbys) do 
-        bby:draw() 
-      end
+    -- Draw the bbys
+    for _, bby in pairs(bbys) do 
+      bby:draw() 
     end
   end
 end
@@ -121,7 +116,6 @@ function draw_title(offset_pixels_x, offset_pixels_y)
       spr(192+sprite, x*8 + offset_pixels_x, y*8 + offset_pixels_y)
     end
   end
-
 end
 
 function draw_bby_iterations(iterations)
@@ -173,9 +167,8 @@ function is_tile(flag, x, y)
 end
 
 function can_move(pos)
-  return true
-  -- tile_coord = pixel_coord_to_tile_coord(pos)
-  -- return not is_tile(wall, tile_coord[1], tile_coord[2])
+  tile_coord = pixel_coord_to_tile_coord(pos)
+  return not is_tile(wall, tile_coord[1], tile_coord[2])
 end
 
 --player code
@@ -183,53 +176,96 @@ end
 function make_player()
   player = {}
 
-  -- Components
-  player.animator = make_animator(
-    player,
-    0.3,
-    1,
-    PALETTES[flr(rnd(PALETTES_LENGTH)) + 1],
-    false)
+  -- Configurations
+  player.max_speed = 1.0
 
   player.pos = {4*8, 4*8}
   player.sprite = 64
+  player.v = {0, 0}
+
+  -- Components
+  player.animator = make_animator(
+    player,
+    0.1,
+    1,
+    PALETTES[flr(rnd(PALETTES_LENGTH)) + 1],
+    false)
+  player.collider = make_collider(
+    player,
+    8,
+    8)
+
+  player.update = function(self)
+    self:move()
+    self.collider:update_collider()
+    self:collide()
+  end
 
   player.move = function(self)
     local did_move = false
     local x_change = 0
 		local y_change = 0
 
-		if (btn(⬅️)) then x_change = -1 end
-		if (btn(➡️)) then x_change = 1 end
-		if (btn(⬆️)) then y_change = -1 end
-		if (btn(⬇️)) then y_change = 1 end
+    -- Get input
+		if (btn(⬅️)) then x_change = -self.max_speed end
+		if (btn(➡️)) then x_change = self.max_speed end
+		if (btn(⬆️)) then y_change = -self.max_speed end
+		if (btn(⬇️)) then y_change = self.max_speed end
 
     if (x_change != 0 or y_change != 0) then
-      local new_x = x_change + self.pos[1]
-      local new_y = y_change + self.pos[2]
-  		if can_move({new_x, new_y}) then
+  		-- if can_move({new_x,  new_y}) then
         did_move = true
-  		  self.pos[1] = new_x
-  		  self.pos[2] = new_y
-  		else
-  		  sfx(0)
-  		end
+        self.v = {x_change, y_change}
+  		-- else
+  		--   sfx(0)
+  		-- end
+    else
+      self.v = {0, 0}
     end
+
+    -- Update position based on velocity
+    self.pos = v_add(self.pos, self.v)
 
     -- Do animation if we moved
     self.animator.animation_flag = did_move
 
+    -- Adjust position based on collision
+    self:collide()
+
+  end
+
+  player.collide = function(self)
+    for _, bby in pairs(bbys) do
+      if self.collider:is_colliding(bby.collider) then
+        if self.v[1] == 0 and self.v[2] == 0 then
+          -- We're not moving. Ignore collision
+          goto continue
+        elseif self.v[2] > 0 then
+          -- Colliding from top
+          self.pos[2] = bby.pos[2] - bby.collider.rect.h
+        elseif self.v[2] < 0 then
+          -- Colliding from bottom
+          self.pos[2] = bby.pos[2] + bby.collider.rect.h
+        elseif self.v[1] > 0 then
+          -- Colliding from left
+          self.pos[1] = bby.pos[1] - bby.collider.rect.w
+        elseif self.v[1] < 0 then
+          -- Colliding from right
+          self.pos[1] = bby.pos[1] + bby.collider.rect.w
+        end
+      end
+      ::continue::  -- Goto marker
+    end
   end
 
   player.draw = function(self)
     self.animator:animate()
     self.animator:draw()
+    if DEBUG then
+      self.collider:draw()
+    end
 	end
 
-end
-
-function update_player()
-	player:move()
 end
 
 -- Item code
@@ -301,6 +337,11 @@ function make_bby(pos)
   -- Configurations
   bby.max_speed = 0.5
 
+  bby.name = BBY_NAMES[flr(rnd(BBY_NAMES_LENGTH)) + 1]
+  bby.pos = pos
+  bby.v = {0, 0}
+  bby.sprite = BBY_INDEXES[flr(rnd(BBY_INDEXES_LENGTH)) + 1]
+
   -- Components
   bby.animator = make_animator(
     bby, 
@@ -308,17 +349,21 @@ function make_bby(pos)
     64, 
     PALETTES[flr(rnd(PALETTES_LENGTH)) + 1],
     true)
+  bby.collider = make_collider(
+    bby,
+    8,
+    8)
 
-  bby.name = BBY_NAMES[flr(rnd(BBY_NAMES_LENGTH)) + 1]
-  bby.pos = pos
-  bby.v = {0, 0}
-  bby.sprite = BBY_INDEXES[flr(rnd(BBY_INDEXES_LENGTH)) + 1]
-
-  bby.add_vel = function(self, v)
-    local v_x = min(self.v[1] + v[1], self.max_speed)
-    local v_y = min(self.v[2] + v[2], self.max_speed)
-    self.v = {v_x, v_y}
+  bby.update = function(self)
+    self:move()
+    self.collider:update_collider()
   end
+
+  -- bby.add_vel = function(self, v)
+  --   local v_x = min(self.v[1] + v[1], self.max_speed)
+  --   local v_y = min(self.v[2] + v[2], self.max_speed)
+  --   self.v = {v_x, v_y}
+  -- end
 
   bby.move = function(self)
     new_pos = v_add(self.pos, self.v)
@@ -413,6 +458,65 @@ function make_animator(parent, fps, sprite_offset, palette, animation_flag)
 
 end
 
+-- Collider
+function make_collider(parent, w, h)
+  collider = {}
+  collider.parent = parent
+
+  collider.rect = {x=0,y=0,w=w,h=h}
+
+  -- Uninitialized collider detectors as rects(xpos, ypos, width, height)
+  collider.t = {x=0,y=0,w=0,h=0} 
+  collider.b = {x=0,y=0,w=0,h=0}
+  collider.l = {x=0,y=0,w=0,h=0}
+  collider.r = {x=0,y=0,w=0,h=0}
+
+  collider.update_collider = function(self)
+    self.rect = {x=parent.pos[1], y=parent.pos[2], w=self.rect.w, h=self.rect.h}
+
+    self.t = {x=parent.pos[1] + 2, y=parent.pos[2], w=self.rect.w - 4, h=self.rect.h / 2}
+    self.b = {x=parent.pos[1] + 2, y=parent.pos[2] + self.rect.h / 2, w=self.rect.w - 4, h=self.rect.h / 2}
+    self.l = {x=parent.pos[1], y=parent.pos[2] + 2, w=self.rect.w / 2, h=self.rect.h - 4}
+    self.r = {x=parent.pos[1] + self.rect.w / 2, y=parent.pos[2] + 2, w=self.rect.w / 2, h=self.rect.h - 4}
+  end
+  collider:update_collider()
+
+  collider.is_colliding = function(collider1, collider2)
+    -- Determines if two objects are colliding
+    local top = collider1.parent.pos[2]
+    local bottom = top + collider1.rect.h
+    local left = collider1.parent.pos[1]
+    local right = left + collider1.rect.w
+    local collider2_top = collider2.parent.pos[2]
+    local collider2_bottom = collider2_top + collider2.rect.h
+    local collider2_left = collider2.parent.pos[1]
+    local collider2_right = collider2.parent.pos[1] + collider2.rect.w
+
+    local horizontal_collision = lines_overlapping(left, right, collider2_left, collider2_right)
+    local vertical_collision = lines_overlapping(top, bottom, collider2_top, collider2_bottom)
+
+    return horizontal_collision and vertical_collision
+  end
+
+  collider.side_detection = function(self, other)
+    local top_hit = self.is_colliding(self.t, other)
+  end
+
+  collider.draw = function(self)
+    for _, r in pairs({self.t, self.b, self.l, self.r}) do
+      rect(
+        r.x,
+        r.y,
+        r.w + r.x - 1,
+        r.h + r.y - 1,
+        0)
+    end
+  end
+
+  return collider
+
+end
+
 
 -- Utility functions
 function lerp(a, b, t)
@@ -441,8 +545,19 @@ function bounce(a, b, t)
   return lerp(a, b, x)
 end
 
+-- Vector functions
+
 function v_add(v1, v2)
   return {v1[1] + v2[1], v1[2] + v2[2]}
+end
+
+function v_in_rect(v, left, top, right, bottom)
+  return top < v[2] and v[2] < bottom and left < v[1] and v[1] < right
+end
+
+function lines_overlapping(min1, max1, min2, max2)
+  -- Checks if 2 parallel lines are overlapping two other parallel lines
+  return max1 > min2 and max2 > min1
 end
 
 
