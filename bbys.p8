@@ -233,6 +233,7 @@ function make_player()
 
     -- Do animation if we moved
     self.animator.animation_flag = did_move
+    self.animator.flip_sprite = x_change > 0
 
     -- Adjust position based on collision
     self:collide()
@@ -245,16 +246,16 @@ function make_player()
         local collision_direction = self.collider:get_collision_direction(bby)
         if collision_direction == TOP_COLLISION then
           -- Colliding top
-          self.pos[2] = bby.pos[2] + bby.collider.rect.h
+          bby.pos[2] = self.pos[2] - self.collider.rect.h
         elseif collision_direction == BOTTOM_COLLISION then
           -- Colliding bottom
-          self.pos[2] = bby.pos[2] - bby.collider.rect.h
+          bby.pos[2] = self.pos[2] + self.collider.rect.h
         elseif collision_direction == LEFT_COLLISION then
           -- Colliding left
-          self.pos[1] = bby.pos[1] + bby.collider.rect.w
+          bby.pos[1] = self.pos[1] - self.collider.rect.w
         elseif collision_direction == RIGHT_COLLISION then
           -- Colliding  right
-          self.pos[1] = bby.pos[1] - bby.collider.rect.w
+          bby.pos[1] = self.pos[1] + self.collider.rect.w
         end
       end
       ::continue::  -- Goto marker
@@ -350,28 +351,33 @@ function make_bby(pos)
     bby, 
     0.3,
     64, 
-    PALETTES[flr(rnd(PALETTES_LENGTH)) + 1],
-    true)
+    PALETTES[flr(rnd(PALETTES_LENGTH)) + 1])
   bby.collider = make_collider(
     bby,
     8,
     8)
+  bby.wanderer = make_wanderer(
+    bby,
+    0.1, 
+    1, 
+    0.4) 
+    
 
   bby.update = function(self)
+    self.wanderer:wander()
     self:move()
     self.collider:update_collider()
   end
-
-  -- bby.add_vel = function(self, v)
-  --   local v_x = min(self.v[1] + v[1], self.max_speed)
-  --   local v_y = min(self.v[2] + v[2], self.max_speed)
-  --   self.v = {v_x, v_y}
-  -- end
 
   bby.move = function(self)
     new_pos = v_add(self.pos, self.v)
     if can_move(new_pos) then
       self.pos = new_pos
+    end
+    if (self.v[1] != 0 or self.v[2] != 0) then
+      self.animator.animation_flag = true
+    else
+      self.animator.animation_flag = false
     end
   end
 
@@ -386,6 +392,71 @@ function make_bby(pos)
 end
 
 
+-- Wander code
+function make_wanderer(parent, wander_speed, frequency, duration, random_offset)
+  wanderer = {}
+  wanderer.parent = parent
+
+  wanderer.wander_speed = wander_speed
+  wanderer.frequency = frequency
+  wanderer.duration = duration
+  wanderer.random_offset = random_offset or 0 -- Additional random time(from zero to this number) that is added to time between wanderings
+
+  wanderer.time_since_last_wander = 0
+  wanderer.time_since_starting_wander = 0
+  wanderer.is_wandering = false
+
+  wanderer.wander = function(self)
+    if not self.is_wandering then
+      -- We're not wandering
+
+      -- Increment the time_since_last_wander count
+      self.time_since_last_wander += DELTA_TIME
+
+      if self.time_since_last_wander > self.frequency then
+        -- Start wandering
+
+        local rand_x = rnd(3)
+        local rand_y = rnd(3)
+        local x = 0
+        local y = 0
+        -- Get random x value
+        if rand_x > 2 then 
+          x = self.wander_speed 
+        elseif rand_x > 1 then
+          x = -self.wander_speed 
+        else 
+          x = 0 
+        end
+
+        -- Get random y value
+        if rand_y > 2 then 
+          y = self.wander_speed 
+        elseif rand_y > 1 then
+          y = -self.wander_speed 
+        else 
+          y = 0 
+        end
+
+        self.parent.v = {x, y}
+
+        self.is_wandering = true
+      end
+    else
+      -- We are wandering
+      self.time_since_starting_wander += DELTA_TIME
+      if self.time_since_starting_wander > self.duration then
+        self.is_wandering = false
+        self.time_since_starting_wander = 0
+        self.time_since_last_wander = 0 - rnd(self.random_offset)
+      end
+    end
+  end
+
+  return wanderer
+end
+
+
 -- Animator code
 
 function make_animator(parent, fps, sprite_offset, palette, animation_flag)
@@ -397,6 +468,7 @@ function make_animator(parent, fps, sprite_offset, palette, animation_flag)
 
   animator.time_since_last_frame = 0
   animator.animation_frame = 0
+  animator.flip_sprite = false
 
   animator.palette = palette
 
@@ -422,7 +494,7 @@ function make_animator(parent, fps, sprite_offset, palette, animation_flag)
       set_palette(self.palette)
     end
 
-    spr(self:get_animation_frame(), parent.pos[1], parent.pos[2])
+    spr(self:get_animation_frame(), parent.pos[1], parent.pos[2], 1.0, 1.0, self.flip_sprite)
 
     if(self.palette != nil) then
       reset_palette()
