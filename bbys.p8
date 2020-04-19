@@ -103,13 +103,13 @@ function _update()
     -- Update level manager
     level_manager:update()
 
+    -- Update player physics
+    player:update()
+
     -- Update bby physics
     for _, bby in pairs(bbys) do 
       bby:update()
     end
-
-    -- Update player physics
-    player:update()
 
     -- Update enemy physics
     for _, enemy in pairs(enemies.enemies) do 
@@ -272,8 +272,7 @@ function make_level_manager()
 
   -- Number of stages for each level, listed sequentially
   level_manager.stage_count = {20}
-
-  level_manager.time_since_last_stage = 0
+  level_manager.map_bounds = {x=1*8, y=1*8, w=15*8, h=15*8}  -- Rect of map bounds
 
   level_manager.enemy_spawn_tl = {0, 0}
   level_manager.enemy_spawn_t = {8, 0}
@@ -283,6 +282,8 @@ function make_level_manager()
   level_manager.enemy_spawn_b = {8, 17}
   level_manager.enemy_spawn_bl = {0, 17}
   level_manager.enemy_spawn_l = {0, 8}
+
+  level_manager.time_since_last_stage = 0
 
   level_manager.init_level = function(self)
     make_player()
@@ -360,40 +361,6 @@ function make_level_manager()
     end
   end
 
-  level_manager.update = function(self)
-    self.time_since_last_stage += DELTA_TIME
-
-    -- Toggle display of namebar ui
-    if (btnp(5)) then 
-      sfx(SFX_TOGGLE_UI)
-      DISPLAY_NAMEBAR_UI = not DISPLAY_NAMEBAR_UI
-    end
-
-    if self.level < self.final_level then
-
-      if self.time_since_last_stage > self.stage_duration then
-        -- Next stage
-        self.time_since_last_stage = 0
-        self.stage += 1
-        self:init_stage()
-      end
-
-      if self.stage > self.stage_count[self.level] then
-        -- Next level
-        self.time_since_last_stage = 0
-        self.stage = 1
-        self.level += 1
-        self:destroy_level()
-        self:init_level()
-      end
-    end
-
-  end
-
-  level_manager.draw = function(self)
-    self:draw_map() 
-  end
-
   level_manager.draw_stage_ui = function(self)
     -- Called each frame for stage_specific ui updates
     if self.level == 1 then
@@ -430,9 +397,87 @@ function make_level_manager()
     end
   end
 
+  level_manager.update = function(self)
+    self.time_since_last_stage += DELTA_TIME
+
+    -- Toggle display of namebar ui
+    if (btnp(5)) then 
+      sfx(SFX_TOGGLE_UI)
+      DISPLAY_NAMEBAR_UI = not DISPLAY_NAMEBAR_UI
+    end
+
+    if self.level < self.final_level then
+
+      -- Keep player and bbys in map bounds
+      self:keep_in_map_bounds()
+
+      if self.time_since_last_stage > self.stage_duration then
+        -- Next stage
+        self.time_since_last_stage = 0
+        self.stage += 1
+        self:init_stage()
+      end
+
+      if self.stage > self.stage_count[self.level] then
+        -- Next level
+        self.time_since_last_stage = 0
+        self.stage = 1
+        self.level += 1
+        self:destroy_level()
+        self:init_level()
+      end
+    end
+
+  end
+
+  level_manager.draw = function(self)
+    self:draw_map() 
+  end
+
   level_manager.draw_map = function(self)
     camera(8, 8)
     map(0, 0, 0, 0, 18, 18)
+  end
+
+  level_manager.keep_in_map_bounds = function(self)
+    -- Keep player in map bounds
+    if player.pos[2] < self.map_bounds.y then
+      -- top
+      player.pos[2] = self.map_bounds.y
+    end
+    if player.pos[2] > self.map_bounds.y + self.map_bounds.h then
+      -- bottom
+      player.pos[2] = self.map_bounds.y + self.map_bounds.h 
+    end
+    if player.pos[1] < self.map_bounds.x then
+      -- left
+      player.pos[1] = self.map_bounds.x
+    end
+    if player.pos[1] > self.map_bounds.x + self.map_bounds.w then
+      -- bottom
+      player.pos[1] = self.map_bounds.x + self.map_bounds.w
+    end
+
+    -- Keep bbys in map bounds
+    for _, bby in pairs(bbys) do
+      -- Add/subtract 8 for one tile difference with bbys (they can't go all the way to the edge)
+      if bby.pos[2] < self.map_bounds.y + 8 then
+        -- top
+        bby.pos[2] = self.map_bounds.y + 8
+      end
+      if bby.pos[2] > self.map_bounds.y + self.map_bounds.h - 8 then
+        -- bottom
+        bby.pos[2] = self.map_bounds.y + self.map_bounds.h - 8
+      end
+      if bby.pos[1] < self.map_bounds.x + 8 then
+        -- left
+        bby.pos[1] = self.map_bounds.x + 8
+      end
+      if bby.pos[1] > self.map_bounds.x + self.map_bounds.w - 8 then
+        -- bottom
+        bby.pos[1] = self.map_bounds.x + self.map_bounds.w - 8
+      end
+    end
   end
 
   level_manager.draw_message = function(self, center_pos, message, palette, display_namebar, bar_length)
@@ -583,9 +628,6 @@ function make_player(pos)
     -- Do animation if we moved
     self.animator.animation_flag = did_move
     if x_change > 0 then self.animator.flip_sprite = true elseif x_change < 0 then self.animator.flip_sprite = false end
-
-    -- Adjust position based on collision
-    self:collide()
 
   end
 
@@ -946,10 +988,14 @@ function make_bby(pos)
       if other_bby ~= self then
         if self.collider:is_colliding(other_bby) then
 
+          if other_bby.push_index == self.push_index and self.push_index > 0 then
+            other_bby.push_index += 1
+          end
+
           if other_bby.push_index > self.push_index then
             -- Do colliding with pushed bby
-            other_bby.push_index = other_bby.push_index + 1
-            self.push_index = other_bby.push_index - 1
+            self.push_index = other_bby.push_index
+            other_bby.push_index += 1
             self.is_pushed_by_bby = true
 
             local collision_direction = self.collider:get_collision_direction(other_bby)
