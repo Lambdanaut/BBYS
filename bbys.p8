@@ -159,18 +159,30 @@ function _draw()
       item:draw() 
     end
 
-    -- Draw the bbys
-    for _, bby in pairs(bbys) do 
-      bby:draw() 
+    -- -- Draw the bbys
+    -- for _, bby in pairs(bbys) do 
+    --   bby:draw() 
+    -- end
+
+    -- -- Draw the enemies
+    -- for _, enemy in pairs(enemies.enemies) do 
+    --   enemy:draw() 
+    -- end
+
+    -- -- Draw player
+    -- player:draw()  
+
+    -- Table of character to draw in order of y axis
+    local draw_table = {}
+    draw_table[1] = player
+    merge_tables(draw_table, bbys)
+    merge_tables(draw_table, enemies.enemies)
+    sort_table_by_pos(draw_table, 2)
+
+    for _, character in pairs(draw_table) do 
+      character:draw()
     end
 
-    -- Draw the enemies
-    for _, enemy in pairs(enemies.enemies) do 
-      enemy:draw() 
-    end
-
-    -- Draw player
-    player:draw()  
 
     -- Draw stage specific ui updates
     level_manager:draw_stage_ui()
@@ -656,7 +668,7 @@ function make_player(pos)
             -- Colliding left
             self.pos[1] = bby.pos[1] + bby.collider.rect.w
           elseif collision_direction == RIGHT_COLLISION then
-            -- Colliding  right
+            -- Colliding right
             self.pos[1] = bby.pos[1] - bby.collider.rect.w
           end
         else
@@ -673,7 +685,7 @@ function make_player(pos)
             -- Colliding left
             bby.pos[1] = self.pos[1] - self.collider.rect.w
           elseif collision_direction == RIGHT_COLLISION then
-            -- Colliding  right
+            -- Colliding right
             bby.pos[1] = self.pos[1] + self.collider.rect.w
           end
         end
@@ -698,7 +710,7 @@ function make_player(pos)
           -- Colliding left
           self.pos[1] = enemy.pos[1] + self.collider.rect.w
         elseif collision_direction == RIGHT_COLLISION then
-          -- Colliding  right
+          -- Colliding right
           self.pos[1] = enemy.pos[1] - self.collider.rect.w
         end
       end
@@ -711,16 +723,16 @@ function make_player(pos)
         local collision_direction = self.collider:get_collision_direction(rock)
         if collision_direction == TOP_COLLISION then
           -- Colliding top
-          self.pos[2] = rock.pos[2] + self.collider.rect.h
+          self.pos[2] = rock.pos[2] + self.collider.rect.h + 1
         elseif collision_direction == BOTTOM_COLLISION then
           -- Colliding bottom
-          self.pos[2] = rock.pos[2] - self.collider.rect.h
+          self.pos[2] = rock.pos[2] - self.collider.rect.h - 1
         elseif collision_direction == LEFT_COLLISION then
           -- Colliding left
-          self.pos[1] = rock.pos[1] + self.collider.rect.w
+          self.pos[1] = rock.pos[1] + self.collider.rect.w - 1
         elseif collision_direction == RIGHT_COLLISION then
-          -- Colliding  right
-          self.pos[1] = rock.pos[1] - self.collider.rect.w
+          -- Colliding right
+          self.pos[1] = rock.pos[1] - self.collider.rect.w + 1
         end
       end
     end
@@ -1632,6 +1644,26 @@ end
 
 
 -- Utility functions
+function sort_table_by_pos(a, pos_index)
+  -- pos_index should be an integer 1 or 2 denoting the x or y coord to sort by
+  for i=1,#a do
+    local j = i
+      while j > 1 and a[j-1].pos[pos_index] > a[j].pos[pos_index] do
+        a[j],a[j-1] = a[j-1],a[j]
+        j = j - 1
+      end
+  end
+end
+
+function merge_tables(t1, t2)
+  -- merges the second table into the first
+  i = #t1 + 1
+  for _, v in pairs(t2) do 
+    t1[i] = v 
+    i += 1
+  end
+end
+
 
 
 __gfx__
