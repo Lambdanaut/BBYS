@@ -408,6 +408,9 @@ function make_food(pos, sprite)
   food.sprite = sprite or flr(rnd(2)) + 144 -- Randomly chooses between the two food sprites at 144 and 145
   food.active = true
 
+  -- Milk heals less than steak
+  if food.sprite == 144 then food.health_given = 0.5 else food.health_given = 1.0 end
+
   -- Components
   food.collider = make_collider(
     food,
@@ -501,6 +504,7 @@ function make_bby(pos)
   bby.pos = pos
   bby.v = {0, 0}
   bby.sprite = 40
+  bby.active = true
 
   bby.is_being_pushed = false
 
@@ -522,8 +526,8 @@ function make_bby(pos)
 
   bby.health = make_health(
     bby,
-    1.0,  -- Max health
-    nil,  -- Damage sfx to play
+    1.0, -- Max health
+    nil, -- Damage sfx to play
     1.0, -- Cooldown duration
     0.02, -- Auto damage taken per second
     death_callback_fn  -- Callback function to call on death
@@ -536,11 +540,21 @@ function make_bby(pos)
     0.8) 
 
   bby.update = function(self)
-    if self.is_being_pushed then self.wanderer:stop() else self.wanderer:wander() end
-    self:move()
-    bby:collide()
-    self.collider:update_collider()
-    self.health:update()
+    if self.active then
+      if self.is_being_pushed then self.wanderer:stop() else self.wanderer:wander() end
+      self:move()
+      bby:collide()
+      self.collider:update_collider()
+      self.health:update()
+    end
+  end
+
+  bby.draw = function(self)
+    if self.active then
+      self.animator:animate()
+      self.animator:draw()
+      self.animator:draw_message(self.name, self.health.health)
+    end
   end
 
   bby.move = function(self)
@@ -555,16 +569,11 @@ function make_bby(pos)
     end
   end
 
-  bby.draw = function(self)
-    self.animator:animate()
-    self.animator:draw()
-    self.animator:draw_message(self.name, self.health.health)
-  end
-
   bby.collide = function(self)
     -- Do Food collision
     for _, food in pairs(foods.foods) do
       if food.active and self.collider:is_colliding(food) then
+        self.health:heal(food.health_given)
         food.active = false
         sfx(1)
       end
@@ -908,6 +917,11 @@ function make_health(parent,
         self.death_callback_fn(self.parent)
       end
     end
+  end
+
+  health.heal = function(self, health)
+    self.health += health
+    self.health = min(self.health, 1.0)
   end
 
   return health
