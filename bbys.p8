@@ -2,8 +2,29 @@ pico-8 cartridge // http://www.pico-8.com
 version 18
 __lua__
 
+-- NOTES
+-- Item modifiers
+-- Anime hair: Makes all enemies prioritize this bbys_pos
+-- Box: Stops wandering
+-- Thick coat(Kenny): Makes invulnerable
+-- Bra: Stops life slowly dropping from hunger
+-- Karate headband: Damages bats on collision, but loses life twice as fast from hunger
+-- Clown nose: Heals all bbys on screen when picked up
+-- Sunglasses: Slows all bats
+-- Bandana: Fires projectiles up down left right 
+-- Dress: Heals colliding bbys
+-- Pants: Makes player faster while colliding
+-- Eyepatch: One bat dies on screen when its picked up
+-- Girl with cap: It's just a hat
+-- Alien: Randomly scrambles position of all bbys and enemies when picked up
+-- Flower in hair: Randomly generates food when picked up
+-- Crown: Randomly generates rocks when picked up
+-- Mask: Deprioritizes completely
+-- …∧░➡️⧗▤⬆️☉🅾️◆█★⬇️✽●♥웃⌂⬅️▥❎🐱ˇ▒♪😐
+
+
 -- DEBUG CONTROLS
-DEBUG = false
+DEBUG = true
 
 -- Constants
 MAP_SIZE_X = 16
@@ -29,9 +50,10 @@ FOOD_STEAK_INDEX = 145
 
 BBY_NAMES = {
   "JON", "BETTY", "SAL", "CAT", "JOSH", "K8E", "JACK", "ANDY", "SCOTT", "ERICA", "JOEL", 
-  "NOODL", "JEFF", "GORBY", "VINNY", "BBYCAKE", "CHARLI", "BBYJESUS",
-  "GOOBY", "GARFO", "BBYHITLR", "MR BBY", "CARL", "TRUMP", "GRINCH", "CONWAY", "GARTH",
-  "MARK", "TOM", "SPUD", "ADRI", "LINDA", "RAINY", "FROGI", "MARSHL", "SEAN",
+  "NOODL", "JEFF", "GORBY", "VINNY", "BBYCAKE", "CHARLI", "BBYJESUS", "TIPPR", "MAMA", "BABA", "DAN", "LUA", "LUNA",
+  "GOOBY", "GARFO", "BBYHITLR", "MR BBY", "CARL", "UGLI", "QTBBY", "MARI", "GRINCH", "CONWAY", "GARTH",
+  "MARK", "TOM", "SPUD", "ADRI", "LINDA", "RAINY", "FROGI", "MARSHL", "SEAN", "SANS", "ANG", "GENO", "MARIO", "PEACH",
+  "DAISY", "BRIT", "KYLE", "TESS", "NIC", "NICK", "RYAN", "HALY", "TERAN", "WINDY" 
 }
 
 BBY_NAMES_LENGTH = 0
@@ -44,8 +66,21 @@ RIGHT_COLLISION = 3
 
 TILE_UNWALKABLE = 0
 
+SFX_UNDEFINED = 0
+SFX_CONSUME_FOOD = 1
+SFX_CONSUME_ITEM = 2
+SFX_HIT_ROCK = 3
+SFX_UNDEFINED = 4
+SFX_PUSH_BBY = 5
+SFX_TOGGLE_UI = 6
+SFX_BBY_DEATH = 7
+SFX_ENEMY_DEATH = 8
+SFX_BBY_DAMAGED = 9
+SFX_ENEMY_DAMAGED = 10
+
 -- Globals
 IN_SPLASH_SCREEN = true
+DISPLAY_NAMEBAR_UI = true
 SPLASH_SCREEN_Y_POS = 0
 LAST_CHECKED_TIME = 0.0
 DELTA_TIME = 0.0  -- time since last frame
@@ -68,13 +103,13 @@ function _update()
     -- Update level manager
     level_manager:update()
 
-    -- Update player physics
-    player:update()
-
     -- Update bby physics
     for _, bby in pairs(bbys) do 
       bby:update()
     end
+
+    -- Update player physics
+    player:update()
 
     -- Update enemy physics
     for _, enemy in pairs(enemies.enemies) do 
@@ -136,6 +171,9 @@ function _draw()
 
     -- Draw player
     player:draw()  
+
+    -- Draw stage specific ui updates
+    level_manager:draw_stage_ui()
     
   end
 end
@@ -196,18 +234,18 @@ function draw_bby_iterations(iterations)
 end
 --map code
 
-function tile_coord_to_pixel_coord(tile_coord)
+function tile_to_pixel_pos(tile_coord)
   -- Given the coordinate of a tile, translate that to pixel values
   return {tile_coord[1] * 8, tile_coord[2] * 8}
 end
 
-function tile_coord_to_rect(tile_coord)
+function tile_pos_to_rect(tile_coord)
   -- Given the coordinate of a tile, translate that to a rect of the tile
-  local pixel_coords = tile_coord_to_pixel_coord(tile_coord)
+  local pixel_coords = tile_to_pixel_pos(tile_coord)
   return {x=pixel_coords[1], y=pixel_coords[2], w=8, h=8 }
 end
 
-function pixel_coord_to_tile_coord(pixel_coord)
+function pixel_to_tile_pos(pixel_coord)
   -- Given coordinates in pixels, translate that to a tile position
   return {pixel_coord[1] / 8, pixel_coord[2] / 8}
 end
@@ -219,7 +257,7 @@ function tile_has_flag(x, y, flag)
 end
 
 function can_move(pos)
-  tile_coord = pixel_coord_to_tile_coord(pos)
+  tile_coord = pixel_to_tile_pos(pos)
   return not tile_has_flag(tile_coord[1], tile_coord[2], TILE_UNWALKABLE)
 end
 
@@ -233,17 +271,17 @@ function make_level_manager()
   level_manager.final_level = 2
 
   -- Number of stages for each level, listed sequentially
-  level_manager.stage_count = {2}
+  level_manager.stage_count = {20}
 
   level_manager.time_since_last_stage = 0
 
   level_manager.enemy_spawn_tl = {0, 0}
   level_manager.enemy_spawn_t = {8, 0}
-  level_manager.enemy_spawn_tr = {16, 0}
-  level_manager.enemy_spawn_r = {16, 8}
-  level_manager.enemy_spawn_br = {16, 16}
-  level_manager.enemy_spawn_b = {8, 16}
-  level_manager.enemy_spawn_bl = {0, 16}
+  level_manager.enemy_spawn_tr = {17, 0}
+  level_manager.enemy_spawn_r = {17, 8}
+  level_manager.enemy_spawn_br = {17, 17}
+  level_manager.enemy_spawn_b = {8, 17}
+  level_manager.enemy_spawn_bl = {0, 17}
   level_manager.enemy_spawn_l = {0, 8}
 
   level_manager.init_level = function(self)
@@ -252,10 +290,22 @@ function make_level_manager()
     make_foods()
     make_bbys()
     make_enemies()
+    make_rocks()
+
+    if DEBUG then
+        make_bby({9, 7})
+        make_bby({9, 8})
+        make_bby({9, 9})
+        make_bby({9, 10})
+        make_bby({9, 11})
+
+      return
+    end
+
     if self.level == 1 then
       local rock_pos = {
-        {4, 3}, {4, 5}, {4, 7}, {4, 9}, {4, 11}, 
-        {12, 12}, {12, 10}, {12, 8}, {12, 6}, {12, 4}
+        {4, 3}, {4, 5}, {4, 7}, {4, 9}, {4, 11}, {4, 13},
+        {13, 12}, {13, 10}, {13, 8}, {13, 6}, {13, 4}
       }
       make_rocks(rock_pos)
     end
@@ -273,9 +323,15 @@ function make_level_manager()
   end
 
   level_manager.init_stage = function(self)
+    if DEBUG then
+      return
+    end
+
+    -- Called once each time a new stage is entered
     if self.level == 1 then
       if self.stage == 1 then
         make_bby({8, 6})
+
         -- Skip a couple stages (saferoom concept)
       elseif self.stage == 4 then
         -- First enemy then a pause
@@ -307,6 +363,12 @@ function make_level_manager()
   level_manager.update = function(self)
     self.time_since_last_stage += DELTA_TIME
 
+    -- Toggle display of namebar ui
+    if (btnp(5)) then 
+      sfx(SFX_TOGGLE_UI)
+      DISPLAY_NAMEBAR_UI = not DISPLAY_NAMEBAR_UI
+    end
+
     if self.level < self.final_level then
 
       if self.time_since_last_stage > self.stage_duration then
@@ -332,15 +394,132 @@ function make_level_manager()
     self:draw_map() 
   end
 
+  level_manager.draw_stage_ui = function(self)
+    -- Called each frame for stage_specific ui updates
+    if self.level == 1 then
+      if self.stage == 1 then
+        self:draw_message(
+          tile_to_pixel_pos({8, 2}),
+          "HI THERE 🅾️O🅾️  ", 
+          PALETTE_GREY)
+      end
+      if self.stage == 2 then
+        self:draw_message(
+          tile_to_pixel_pos({8, 2}),
+          "THIS IS UR BBY! 🅾️U🅾️  ", 
+          PALETTE_GREY)
+      end
+      if self.stage == 3 then
+        self:draw_message(
+          tile_to_pixel_pos({8, 2}),
+          "SHE HUNGR. HIT ROCK 4 FOOD!!", 
+          PALETTE_GREY)
+      end
+      if self.stage == 4 then
+        self:draw_message(
+          tile_to_pixel_pos({8, 2}),
+          "BUT MOST IMPORTANT... 🅾️_🅾️  ", 
+          PALETTE_GREY)
+      end
+      if self.stage == 5 then
+        self:draw_message(
+          tile_to_pixel_pos({8, 2}),
+          "SAVE HER FROM BEIN FOOD ❎~❎  ", 
+          PALETTE_GREY)
+      end
+    end
+  end
+
   level_manager.draw_map = function(self)
     camera(8, 8)
-    map(0, 0, 0, 0, 16, 16)
+    map(0, 0, 0, 0, 18, 18)
+  end
+
+  level_manager.draw_message = function(self, center_pos, message, palette, display_namebar, bar_length)
+
+    if display_namebar or display_namebar == nil then
+      message_length = #message
+    else
+      -- Trim the message length if we're not display the full name bar
+      message_length = 2
+    end
+
+    local bar_length = bar_length
+    if bar_length ~= nil then
+      -- bar_length should be between 0.0 and 1.0
+      local bar_length = max(0.0, bar_length or 1.0)
+    end
+    local padding = 2
+    local x_pos = center_pos[1] + 5 - message_length * 4 / 2 
+    local y_pos = center_pos[2]
+    local bg_color = 9
+
+    if (palette != nil) then
+      if palette == PALETTE_ORANGE then
+        bg_color = 9
+      elseif palette == PALETTE_GREEN then
+        bg_color = 3  -- dark green
+      elseif palette == PALETTE_BLUE then
+        bg_color = 12
+      elseif palette == PALETTE_GREY then
+        bg_color = 6
+      end
+    end
+
+    if (display_namebar or display_namebar == nil) then
+      -- Draw Message Background Rectangle
+      rectfill(
+        x_pos - padding,
+        y_pos - padding,
+        x_pos + message_length * 4 ,
+        y_pos + 5,
+        bg_color)
+
+      -- Draw message
+      print(message, x_pos, y_pos - 1, 0)
+    end
+
+    -- Draw bar
+    if (bar_length) then
+      local bar_bg_color = 0
+      local bar_fill_color = 8
+
+      -- Bar Background
+      line(
+        x_pos - padding,
+        y_pos + 5,
+        x_pos + message_length * 4,
+        y_pos + 5,
+        bar_bg_color
+      )
+      -- Bar Fill
+      if(bar_length > 0.0) then
+        -- Green
+        local bar_fill_color = 11
+        if (bar_length < 0.25) then
+          -- Red
+          bar_fill_color = 8
+        elseif (bar_length < 0.6) then
+          -- Yellow
+          bar_fill_color = 10
+        end
+
+        line(
+          x_pos - padding,
+          y_pos + 5,
+          x_pos - padding + (((message_length * 4) + padding) * bar_length),
+          y_pos + 5,
+          bar_fill_color
+        )
+      end
+    end
   end
 
   level_manager:init_level()
   level_manager:init_stage()
 
   return level_manager
+
 
 end
 
@@ -351,9 +530,9 @@ function make_player(pos)
 
   -- Configurations
   player.max_speed = 1.0
-  player.damage_to_rocks = 0.08
+  player.damage_to_rocks = 0.1
 
-  player.pos = tile_coord_to_pixel_coord(pos or {8, 8})
+  player.pos = tile_to_pixel_pos(pos or {8, 8})
   player.sprite = 64
   player.v = {0, 0}
   player.active = true
@@ -414,7 +593,10 @@ function make_player(pos)
     -- Do bby collision
     for _, bby in pairs(bbys) do
       if self.collider:is_colliding(bby) then
-        bby.is_being_pushed = true
+        if bby.push_index == 0 then
+          sfx(SFX_PUSH_BBY)
+        end
+        bby.push_index = 1
         local collision_direction = self.collider:get_collision_direction(bby)
         if collision_direction == TOP_COLLISION then
           -- Colliding top
@@ -429,8 +611,8 @@ function make_player(pos)
           -- Colliding  right
           bby.pos[1] = self.pos[1] + self.collider.rect.w
         end
-      else
-        bby.is_being_pushed = false
+      elseif not bby.is_pushed_by_bby  then
+        bby.push_index = 0
       end
     end
 
@@ -509,7 +691,7 @@ end
 function make_item(sprite, pos)
   local item = {}
 
-  item.sprite = sprite or ITEM_INDEXES[flr(rnd(#ITEM_INDEXES))]
+  item.sprite = sprite or ITEM_INDEXES[flr(rnd(#ITEM_INDEXES)) + 1]
   item.active = true
   item.pos = pos
 
@@ -528,7 +710,7 @@ function make_item(sprite, pos)
     1.0,  -- Max health
     nil, -- Damage SFX to play
     nil, -- Cooldown duration
-    0.15,  -- Auto damage taken per second
+    0.1,  -- Auto damage taken per second
     death_callback_fn  -- Callback function to call on death
   )
 
@@ -606,8 +788,10 @@ function make_rocks(rocks_tile_pos)
 
   rocks.rocks = {}
 
-  for _, pos in pairs(rocks_tile_pos) do
-    make_rock(tile_coord_to_pixel_coord(pos))
+  if rocks_tile_pos ~= nil then
+    for _, pos in pairs(rocks_tile_pos) do
+      make_rock(tile_to_pixel_pos(pos))
+    end
   end
 end
 
@@ -631,7 +815,7 @@ function make_rock(pos)
   rock.health = make_health(
     rock,
     1.0,  -- Max health
-    3,  -- Damage sfx to play
+    SFX_HIT_ROCK,  -- Damage sfx to play
     0.4, -- Cooldown duration
     nil,  -- Auto damage taken per second (none)
     death_callback_fn,  -- Callback function to call on death
@@ -677,12 +861,13 @@ function make_bby(pos)
   bby.max_speed = 0.5
 
   bby.name = BBY_NAMES[flr(rnd(BBY_NAMES_LENGTH)) + 1]
-  bby.pos = tile_coord_to_pixel_coord(pos or {8,8})
+  bby.pos = tile_to_pixel_pos(pos or {8,8})
   bby.v = {0, 0}
   bby.sprite = 40
   bby.active = true
 
-  bby.is_being_pushed = false
+  bby.push_index = 0
+  bby.is_pushed_by_bby = false
 
   -- Components
   bby.animator = make_animator(
@@ -696,14 +881,14 @@ function make_bby(pos)
     8)
 
   death_callback_fn = function(bby)
-    sfx(5)
+    sfx(SFX_BBY_DEATH)
     bby.active = false
   end
 
   bby.health = make_health(
     bby,
     1.0, -- Max health
-    nil, -- Damage sfx to play
+    SFX_BBY_DAMAGED, -- Damage sfx to play
     0.5, -- Cooldown duration
     0.02, -- Auto damage taken per second
     death_callback_fn  -- Callback function to call on death
@@ -717,7 +902,7 @@ function make_bby(pos)
 
   bby.update = function(self)
     if self.active then
-      if self.is_being_pushed then self.wanderer:stop() else self.wanderer:wander() end
+      if self.push_index > 0 then self.wanderer:stop() else self.wanderer:wander() end
       self:move()
       self:collide()
       self.collider:update()
@@ -729,7 +914,10 @@ function make_bby(pos)
     if self.active then
       self.animator:animate()
       self.animator:draw()
-      self.animator:draw_message(self.name, self.health.health)
+
+      local nametag = self.name
+      if DEBUG then nametag = tostr(self.push_index) end
+      level_manager:draw_message({self.pos[1], self.pos[2] - 8}, nametag, self.animator.palette, DISPLAY_NAMEBAR_UI, self.health.health)
     end
   end
 
@@ -745,48 +933,56 @@ function make_bby(pos)
     end
   end
 
-  bby.collide = function(self)
-    -- Do player collision
+  bby.collide = function(self, i)
+    -- Set flag if colliding with player
+    local colliding_with_player = false
     if player.active and self.collider:is_colliding(player) then
-      local collision_direction = self.collider:get_collision_direction(player)
-      if collision_direction == TOP_COLLISION then
-        -- Colliding top
-        player.pos[2] = self.pos[2] - self.collider.rect.h
-      elseif collision_direction == BOTTOM_COLLISION then
-        -- Colliding bottom
-        player.pos[2] = self.pos[2] + self.collider.rect.h
-      elseif collision_direction == LEFT_COLLISION then
-        -- Colliding left
-        player.pos[1] = self.pos[1] - self.collider.rect.w
-      elseif collision_direction == RIGHT_COLLISION then
-        -- Colliding  right
-        player.pos[1] = self.pos[1] + self.collider.rect.w
-      end
-    else
-      bby.is_being_pushed = false
+      colliding_with_player = true
     end
 
     -- Do bby collision
-    for _, bby in pairs(bbys) do
-      if bby ~= self then
-        if self.collider:is_colliding(bby) then
-          bby.is_being_pushed = true
-          local collision_direction = self.collider:get_collision_direction(bby)
-          if collision_direction == TOP_COLLISION then
-            -- Colliding top
-            bby.pos[2] = self.pos[2] - self.collider.rect.h
-          elseif collision_direction == BOTTOM_COLLISION then
-            -- Colliding bottom
-            bby.pos[2] = self.pos[2] + self.collider.rect.h
-          elseif collision_direction == LEFT_COLLISION then
-            -- Colliding left
-            bby.pos[1] = self.pos[1] - self.collider.rect.w
-          elseif collision_direction == RIGHT_COLLISION then
-            -- Colliding  right
-            bby.pos[1] = self.pos[1] + self.collider.rect.w
+    self.is_pushed_by_bby = false
+    for _, other_bby in pairs(bbys) do
+      if other_bby ~= self then
+        if self.collider:is_colliding(other_bby) then
+
+          if other_bby.push_index > self.push_index then
+            -- Do colliding with pushed bby
+            other_bby.push_index = other_bby.push_index + 1
+            self.push_index = other_bby.push_index - 1
+            self.is_pushed_by_bby = true
+
+            local collision_direction = self.collider:get_collision_direction(other_bby)
+            if collision_direction == TOP_COLLISION then
+              -- Colliding top
+              self.pos[2] = other_bby.pos[2] + self.collider.rect.h
+            elseif collision_direction == BOTTOM_COLLISION then
+              -- Colliding bottom
+              self.pos[2] = other_bby.pos[2] - self.collider.rect.h
+            elseif collision_direction == LEFT_COLLISION then
+              -- Colliding left
+              self.pos[1] = other_bby.pos[1] + self.collider.rect.w
+            elseif collision_direction == RIGHT_COLLISION then
+              -- Colliding right
+              self.pos[1] = other_bby.pos[1] - self.collider.rect.w
+            end
+          elseif other_bby.push_index == 0 then
+            -- Do colliding with wandering bby
+            local collision_direction = self.collider:get_collision_direction(other_bby)
+            if collision_direction == TOP_COLLISION then
+              -- Colliding top
+              other_bby.pos[2] = self.pos[2] - self.collider.rect.h
+            elseif collision_direction == BOTTOM_COLLISION then
+              -- Colliding bottom
+              other_bby.pos[2] = self.pos[2] + self.collider.rect.h
+            elseif collision_direction == LEFT_COLLISION then
+              -- Colliding left
+              other_bby.pos[1] = self.pos[1] - self.collider.rect.w
+            elseif collision_direction == RIGHT_COLLISION then
+              -- Colliding right
+              other_bby.pos[1] = self.pos[1] + self.collider.rect.w
+            end
           end
-        else
-          bby.is_being_pushed = false
         end
       end
     end
@@ -817,16 +1013,16 @@ function make_bby(pos)
       if food.active and self.collider:is_colliding(food) then
         self.health:heal(food.health_given)
         food.active = false
-        sfx(1)
+        sfx(SFX_CONSUME_FOOD)
       end
     end
 
     -- Do Item collision
     for _, item in pairs(items.items) do
       if item.active and self.collider:is_colliding(item) then
-        self.sprite = item_index_to_bby_index(item.sprite)
+        self.sprite = item:to_bby()
         item.active = false
-        sfx(2)
+        sfx(SFX_CONSUME_ITEM)
       end
     end
 
@@ -849,7 +1045,11 @@ function make_bby(pos)
         end
       end
     end
- 
+
+    if i==nil then
+      self:collide(false)
+    end
+
   end
 
   bbys[#bbys + 1] = bby
@@ -878,7 +1078,7 @@ function make_enemy(pos)
   enemy.max_speed = 0.1
 
   enemy.name = " 🐱  "
-  enemy.pos = tile_coord_to_pixel_coord(pos or {0, 0})
+  enemy.pos = tile_to_pixel_pos(pos or {0, 0})
   enemy.v = {0, 0}
   enemy.sprite = 128
   enemy.active = true
@@ -896,7 +1096,7 @@ function make_enemy(pos)
     8)
 
   death_callback_fn = function(enemy)
-    sfx(5)
+    sfx(SFX_ENEMY_DEATH)
 
     make_item(nil, enemy.pos)
 
@@ -905,7 +1105,7 @@ function make_enemy(pos)
   enemy.health = make_health(
     enemy,
     1.0, -- Max health
-    nil, -- Damage sfx to play
+    SFX_ENEMY_DAMAGED, -- Damage sfx to play
     nil, -- Cooldown duration
     0.05, -- Auto damage taken per second
     death_callback_fn  -- Callback function to call on death
@@ -941,7 +1141,7 @@ function make_enemy(pos)
     if self.active then
       self.animator:animate()
       self.animator:draw()
-      self.animator:draw_message(self.name, self.health.health)
+      level_manager:draw_message({self.pos[1], self.pos[2] - 8}, self.name, self.animator.palette, DISPLAY_NAMEBAR_UI, self.health.health)
     end
   end
 
@@ -1112,76 +1312,6 @@ function make_animator(parent, fps, sprite_offset, palette, animation_flag)
     if(self.palette != nil) then
       reset_palette()
     end
-  end
-
-  animator.draw_message = function(self, message, bar_length)
-    -- bar_length should be between 0.0 and 1.0
-
-    local bar_length = max(0.0, bar_length)
-    local padding = 2
-    local x_pos = self.parent.pos[1] + 5 - #message * 4 / 2 
-    local y_pos = self.parent.pos[2] - 8
-    local bg_color = 9
-
-    if (self.palette != nil) then
-      if self.palette == PALETTE_ORANGE then
-        bg_color = 9
-      elseif self.palette == PALETTE_GREEN then
-        bg_color = 3  -- dark green
-      elseif self.palette == PALETTE_BLUE then
-        bg_color = 12
-      elseif self.palette == PALETTE_GREY then
-        bg_color = 6
-      end
-    end
-
-    -- Draw Message Background Rectangle
-    rectfill(
-      x_pos - padding,
-      y_pos - padding,
-      x_pos + #message * 4 ,
-      y_pos + 5,
-      bg_color)
-
-    -- Draw message
-    print(message, x_pos, y_pos - 1, 0)
-
-    -- Draw bar
-    if (bar_length) then
-      local bar_bg_color = 0
-      local bar_fill_color = 8
-
-      -- Bar Background
-      line(
-        x_pos - padding,
-        y_pos + 5,
-        x_pos + #message * 4,
-        y_pos + 5,
-        bar_bg_color
-      )
-      -- Bar Fill
-      if(bar_length > 0.0) then
-        -- Green
-        local bar_fill_color = 11
-        if (bar_length < 0.25) then
-          -- Red
-          bar_fill_color = 8
-        elseif (bar_length < 0.6) then
-          -- Yellow
-          bar_fill_color = 10
-        end
-
-        line(
-          x_pos - padding,
-          y_pos + 5,
-          x_pos - padding + (((#message * 4) + padding) * bar_length),
-          y_pos + 5,
-          bar_fill_color
-        )
-      end
-    end
-
-
   end
 
   return animator
@@ -1556,23 +1686,27 @@ __gff__
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __map__
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0012121212121212121212121212121200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0012070606060606060606060606051200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0012080101010101010101010101011200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0012080101010101010101010101011200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0012080101010101010101010101011200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0012080101010101010101010101011200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0012080101010101010101010101011200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0012080101010101010101010101011200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0012080101010101010101010101011200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0012080101010101010101010101011200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0012080101010101010101010101011200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0012080101010101010101010101011200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0012080101010101010101010101011200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0012090202020202020202020202031200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0012121212121212121212121212121200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0012121212121212121212121212121212000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0012070606060606060606060606060512000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0012080101010101010101010101010412000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0012080101010101010101010101010412000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0012080101010101010101010101010412000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0012080101010101010101010101010412000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0012080101010101010101010101010412000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0012080101010101010101010101010412000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0012080101010101010101010101010412000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0012080101010101010101010101010412000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0012080101010101010101010101010412000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0012080101010101010101010101010412000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0012080101010101010101010101010412000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0012080101010101010101010101010412000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0012090202020202020202020202020312000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0012121212121212121212121212121212000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __sfx__
-000400000e03000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000400001d03000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00090000130501e050290502e05015050060500205002050010500200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 000900000b2501a250282501625035250000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 000300003b630316302e63031630243301b3200533000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000c00000001005700027000570005700027000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000600003a1203d110000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
