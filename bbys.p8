@@ -300,6 +300,11 @@ function make_level_manager()
         make_bby({9, 10})
         make_bby({9, 11})
 
+        make_rock({3, 3})
+        make_rock({3, 5})
+        make_rock({3, 7})
+        make_rock({3, 9})
+
       return
     end
 
@@ -598,6 +603,12 @@ function make_player(pos)
     self:move()
     self.collider:update()
     self:collide()
+    self:update_position()
+  end
+
+  player.update_position = function(self)
+    -- Update position based on velocity
+    self.pos = v_add(self.pos, self.v)
   end
 
   player.move = function(self)
@@ -622,9 +633,6 @@ function make_player(pos)
       self.v = {0, 0}
     end
 
-    -- Update position based on velocity
-    self.pos = v_add(self.pos, self.v)
-
     -- Do animation if we moved
     self.animator.animation_flag = did_move
     if x_change > 0 then self.animator.flip_sprite = true elseif x_change < 0 then self.animator.flip_sprite = false end
@@ -635,25 +643,41 @@ function make_player(pos)
     -- Do bby collision
     for _, bby in pairs(bbys) do
       if self.collider:is_colliding(bby) then
-        if bby.push_index == 0 then
+        if bby.is_colliding_with_unwalkable then
+          -- BBY is colliding with unwalkable. We can't move this way
+          local collision_direction = self.collider:get_collision_direction(bby)
+          if collision_direction == TOP_COLLISION then
+            -- Colliding top
+            self.pos[2] = bby.pos[2] + bby.collider.rect.h
+          elseif collision_direction == BOTTOM_COLLISION then
+            -- Colliding bottom
+            self.pos[2] = bby.pos[2] - bby.collider.rect.h
+          elseif collision_direction == LEFT_COLLISION then
+            -- Colliding left
+            self.pos[1] = bby.pos[1] + bby.collider.rect.w
+          elseif collision_direction == RIGHT_COLLISION then
+            -- Colliding  right
+            self.pos[1] = bby.pos[1] - bby.collider.rect.w
+          end
+        else
           sfx(SFX_PUSH_BBY)
+          bby.push_index = 1
+          local collision_direction = self.collider:get_collision_direction(bby)
+          if collision_direction == TOP_COLLISION then
+            -- Colliding top
+            bby.pos[2] = self.pos[2] - self.collider.rect.h
+          elseif collision_direction == BOTTOM_COLLISION then
+            -- Colliding bottom
+            bby.pos[2] = self.pos[2] + self.collider.rect.h
+          elseif collision_direction == LEFT_COLLISION then
+            -- Colliding left
+            bby.pos[1] = self.pos[1] - self.collider.rect.w
+          elseif collision_direction == RIGHT_COLLISION then
+            -- Colliding  right
+            bby.pos[1] = self.pos[1] + self.collider.rect.w
+          end
         end
-        bby.push_index = 1
-        local collision_direction = self.collider:get_collision_direction(bby)
-        if collision_direction == TOP_COLLISION then
-          -- Colliding top
-          bby.pos[2] = self.pos[2] - self.collider.rect.h
-        elseif collision_direction == BOTTOM_COLLISION then
-          -- Colliding bottom
-          bby.pos[2] = self.pos[2] + self.collider.rect.h
-        elseif collision_direction == LEFT_COLLISION then
-          -- Colliding left
-          bby.pos[1] = self.pos[1] - self.collider.rect.w
-        elseif collision_direction == RIGHT_COLLISION then
-          -- Colliding  right
-          bby.pos[1] = self.pos[1] + self.collider.rect.w
-        end
-      elseif not bby.is_pushed_by_bby  then
+      elseif not bby.is_pushed_by_bby then
         bby.push_index = 0
       end
     end
@@ -832,7 +856,7 @@ function make_rocks(rocks_tile_pos)
 
   if rocks_tile_pos ~= nil then
     for _, pos in pairs(rocks_tile_pos) do
-      make_rock(tile_to_pixel_pos(pos))
+      make_rock(pos)
     end
   end
 end
@@ -840,7 +864,7 @@ end
 function make_rock(pos)
   local rock = {}
 
-  rock.pos = pos
+  rock.pos = tile_to_pixel_pos(pos or {8,8})
   rock.active = true
   rock.sprite = 60
 
@@ -910,6 +934,7 @@ function make_bby(pos)
 
   bby.push_index = 0
   bby.is_pushed_by_bby = false
+  bby.is_colliding_with_unwalkable = false  -- true if colliding with a rock
 
   -- Components
   bby.animator = make_animator(
@@ -989,6 +1014,7 @@ function make_bby(pos)
         if self.collider:is_colliding(other_bby) then
 
           if other_bby.push_index == self.push_index and self.push_index > 0 then
+            -- Fixes some edge cases where bbys next to each other would increment each other indefinitely
             other_bby.push_index += 1
           end
 
@@ -1073,8 +1099,10 @@ function make_bby(pos)
     end
 
     -- Do rock collision
+    self.is_colliding_with_unwalkable = false
     for _, rock in pairs(rocks.rocks) do
       if rock.active and self.collider:is_colliding(rock) then
+        self.is_colliding_with_unwalkable = true
         local collision_direction = self.collider:get_collision_direction(rock)
         if collision_direction == TOP_COLLISION then
           -- Colliding top
@@ -1365,11 +1393,16 @@ function make_animator(parent, fps, sprite_offset, palette, animation_flag)
 end
 
 -- Collider
-function make_collider(parent, w, h)
+function make_collider(parent, w, h, offset)
   collider = {}
   collider.parent = parent
 
-  collider.rect = {x=0,y=0,w=w,h=h}
+  collider.offset = offset or 1
+  collider.rect = {
+    x=0,
+    y=0,
+    w=w - collider.offset*2,
+    h=h - collider.offset*2}
 
   -- Uninitialized collider detectors as rects(xpos, ypos, width, height)
   collider.t = {x=0,y=0,w=0,h=0} 
@@ -1378,12 +1411,15 @@ function make_collider(parent, w, h)
   collider.r = {x=0,y=0,w=0,h=0}
 
   collider.update = function(self)
-    self.rect = {x=parent.pos[1], y=parent.pos[2], w=self.rect.w, h=self.rect.h}
+    local offset_x = parent.pos[1] + self.offset
+    local offset_y = parent.pos[2] + self.offset
 
-    self.t = {x=parent.pos[1] + 2, y=parent.pos[2], w=self.rect.w - 4, h=self.rect.h / 2}
-    self.b = {x=parent.pos[1] + 2, y=parent.pos[2] + self.rect.h / 2, w=self.rect.w - 4, h=self.rect.h / 2}
-    self.l = {x=parent.pos[1], y=parent.pos[2] + 2, w=self.rect.w / 2, h=self.rect.h - 4}
-    self.r = {x=parent.pos[1] + self.rect.w / 2, y=parent.pos[2] + 2, w=self.rect.w / 2, h=self.rect.h - 4}
+    self.rect = {x=offset_x, y=offset_y, w=self.rect.w, h=self.rect.h}
+
+    self.t = {x=offset_x + 2, y=offset_y, w=self.rect.w - 4, h=self.rect.h / 2}
+    self.b = {x=offset_x + 2, y=offset_y + self.rect.h / 2, w=self.rect.w - 4, h=self.rect.h / 2}
+    self.l = {x=offset_x, y=offset_y + 2, w=self.rect.w / 2, h=self.rect.h - 4}
+    self.r = {x=offset_x + self.rect.w / 2, y=offset_y + 2, w=self.rect.w / 2, h=self.rect.h - 4}
   end
   collider:update()
 
@@ -1752,7 +1788,7 @@ __sfx__
 000400001d03000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00090000130501e050290502e05015050060500205002050010500200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 000900000b2501a250282501625035250000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000300003b630316302e63031630243301b3200533000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000300003b620316202e62031620243201b3100532000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 000c00000001005700027000570005700027000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 000600003a1203d110000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
