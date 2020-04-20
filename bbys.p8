@@ -24,7 +24,7 @@ __lua__
 
 
 -- DEBUG CONTROLS
-DEBUG = true
+DEBUG = false
 
 -- Constants
 MAP_SIZE_X = 16
@@ -78,17 +78,29 @@ SFX_ENEMY_DEATH = 8
 SFX_BBY_DAMAGED = 9
 SFX_ENEMY_DAMAGED = 10
 
+MUSIC_SPLASH_SCREEN = 20
+MUSIC_LVL1 = 0
+
+MUSIC_BITMASK = 3
+
 -- Globals
 IN_SPLASH_SCREEN = true
+IN_PLAYER_LOST_SCREEN = false
 DISPLAY_NAMEBAR_UI = true
 SPLASH_SCREEN_Y_POS = 0
 LAST_CHECKED_TIME = 0.0
 DELTA_TIME = 0.0  -- time since last frame
+UNLOCKED_PALETTES = {PALETTE_ORANGE}
+
+-- Use all palettes in debug mode
+if DEBUG then UNLOCKED_PALETTES = PALETTES end
 
 
 -- Game Loop 🅾️_🅾️
 function _init()
   print("welcome 🅾️_🅾️♥")
+
+  music(MUSIC_SPLASH_SCREEN, 0, MUSIC_BITMASK)
 end
 
 function _update()
@@ -97,6 +109,8 @@ function _update()
   LAST_CHECKED_TIME = t
   if IN_SPLASH_SCREEN then
     get_splash_screen_input()
+  elseif IN_PLAYER_LOST_SCREEN then
+    get_player_lost_input()
   else
     -- Update level manager
     level_manager:update()
@@ -135,6 +149,8 @@ end
 function _draw()
   if IN_SPLASH_SCREEN then
     draw_splash_screen()
+  elseif IN_PLAYER_LOST_SCREEN then
+    draw_player_lost_message()
   else
     -- Clear screen
     cls()
@@ -176,6 +192,13 @@ end
 
 -- Splash screen code
 
+function get_splash_screen_input()
+  if (btnp(4)) then 
+    IN_SPLASH_SCREEN = false
+    make_level_manager()
+  end
+end
+
 function draw_splash_screen()
   rectfill(0, 0, 8*16, 8*16, 15)
   draw_bby_iterations(2)
@@ -190,11 +213,18 @@ function draw_splash_screen()
   draw_title(0, title_y_pos)
 end
 
-function get_splash_screen_input()
+function get_player_lost_input()
   if (btnp(4)) then 
-    IN_SPLASH_SCREEN = false
-    make_level_manager()
+    IN_PLAYER_LOST_SCREEN = false
+    level_manager:reset_level()
   end
+end
+
+function draw_player_lost_message()
+  level_manager:draw_message(
+    tile_to_pixel_pos({8, 7}),
+    ":(  🐱 BBY DIED 🐱  :(  ", 
+    PALETTE_GREY)
 end
 
 function draw_title(offset_pixels_x, offset_pixels_y)
@@ -265,10 +295,10 @@ function make_level_manager()
   level_manager.level = 1
   level_manager.stage = 1  -- The progression of the current level
   level_manager.stage_duration = 5
-  level_manager.final_level = 2
+  level_manager.final_level = 3
 
   -- Number of stages for each level, listed sequentially
-  level_manager.stage_count = {20}
+  level_manager.stage_count = {21, 26}
   level_manager.map_bounds = {x=1*8, y=1*8, w=15*8, h=15*8}  -- Rect of map bounds
 
   level_manager.enemy_spawn_tl = {0, 0}
@@ -283,13 +313,15 @@ function make_level_manager()
   level_manager.time_since_last_stage = 0
 
   level_manager.init_level = function(self)
-    music(0, 0, 3)
+    music(MUSIC_LVL1, 0, MUSIC_BITMASK)
     make_player()
     make_items()
     make_foods()
     make_bbys()
     make_enemies()
     make_rocks()
+
+    self.stage = 1
 
     if DEBUG then
         make_bby({9, 7})
@@ -313,7 +345,24 @@ function make_level_manager()
       }
       make_rocks(rock_pos)
 
+      UNLOCKED_PALETTES = {PALETTE_ORANGE}
+    elseif self.level == 2 then
+      local rock_pos = {
+        {3, 4}, {5, 4}, {7, 4}, {9, 4}, {11, 4}, {13, 4},
+        {4, 3}, {4, 5}, {4, 7}, {4, 9}, {4, 11}, {4, 13},
+        {13, 12}, {13, 10}, {13, 8}, {13, 6}, {13, 4}
+      }
+      make_rocks(rock_pos)
+
+      UNLOCKED_PALETTES = {PALETTE_ORANGE, PALETTE_GREEN}
     end
+
+  end
+
+  level_manager.reset_level = function(self)
+    self:destroy_level()
+    self:init_level()
+    self:init_stage()
   end
 
   level_manager.destroy_level = function(self)
@@ -334,6 +383,7 @@ function make_level_manager()
 
     -- Called once each time a new stage is entered
     if self.level == 1 then
+
       if self.stage == 1 then
         make_bby({8, 6})
 
@@ -360,8 +410,40 @@ function make_level_manager()
         make_enemy(self.enemy_spawn_r)
 
       end
+
+    elseif self.level == 2 then
+      if self.stage == 1 then
+        make_bby({8, 6}, PALETTE_ORANGE)
+      elseif self.stage == 4 then
+        make_bby({8, 7}, PALETTE_GREEN)
+      elseif self.stage == 5 then
+        make_enemy(self.enemy_spawn_b, PALETTE_GREEN)
+      elseif self.stage == 9 then
+        -- Enemies go only after new bby
+        make_enemy(self.enemy_spawn_l, PALETTE_GREEN)
+      elseif self.stage == 14 then
+        -- Two more enemies from the same location go after other bby
+        make_enemy(self.enemy_spawn_t, PALETTE_ORANGE)
+        make_enemy(self.enemy_spawn_r, PALETTE_ORANGE)
+      elseif self.stage == 18 then
+        make_enemy(self.enemy_spawn_t, PALETTE_GREEN)
+      elseif self.stage == 19 then
+        make_enemy(self.enemy_spawn_b, PALETTE_GREEN)
+      elseif self.stage == 20 then
+        make_enemy(self.enemy_spawn_r, PALETTE_ORANGE)
+      elseif self.stage == 21 then
+        make_enemy(self.enemy_spawn_l, PALETTE_GREEN)
+      end
+
     elseif self.level == self.final_level then
-      -- ROLL CREDDIES
+      bby1=make_bby({2, 14}, PALETTE_ORANGE)
+      bby1.wanderer.active = false
+      bby2=make_bby({6, 14}, PALETTE_GREEN)
+      bby2.wanderer.active = false
+      bby3=make_bby({10, 14}, PALETTE_BLUE)
+      bby3.wanderer.active = false
+      bby4=make_bby({14, 14}, PALETTE_GREY)
+      bby4.wanderer.active = false
     end
   end
 
@@ -373,31 +455,71 @@ function make_level_manager()
           tile_to_pixel_pos({8, 2}),
           "HI THERE 🅾️O🅾️  ", 
           PALETTE_GREY)
-      end
-      if self.stage == 2 then
+      elseif self.stage == 2 then
         self:draw_message(
           tile_to_pixel_pos({8, 2}),
           "THIS IS UR BBY! 🅾️U🅾️  ", 
           PALETTE_GREY)
-      end
-      if self.stage == 3 then
+      elseif self.stage == 3 then
         self:draw_message(
           tile_to_pixel_pos({8, 2}),
           "SHE HUNGR. HIT ROCK 4 FOOD!!", 
           PALETTE_GREY)
-      end
-      if self.stage == 4 then
+      elseif self.stage == 4 then
         self:draw_message(
           tile_to_pixel_pos({8, 2}),
           "BUT MOST IMPORTANT... 🅾️_🅾️  ", 
           PALETTE_GREY)
-      end
-      if self.stage == 5 then
+      elseif self.stage == 5 then
         self:draw_message(
           tile_to_pixel_pos({8, 2}),
           "SAVE HER FROM BEIN FOOD ❎~❎  ", 
           PALETTE_GREY)
       end
+    elseif self.level == 2 then
+      if self.stage == 1 then
+        self:draw_message(
+          tile_to_pixel_pos({8, 2}),
+          "HEWWO! ^o^ SO SRY 2 SEE...", 
+          PALETTE_GREY)
+      elseif self.stage == 2 then
+        self:draw_message(
+          tile_to_pixel_pos({8, 2}),
+          "  ...  ", 
+          PALETTE_GREY)
+      elseif self.stage == 3 then
+        self:draw_message(
+          tile_to_pixel_pos({8, 2}),
+          "WUT ❎∧🅾️ UR BBY ALIVE?   ", 
+          PALETTE_GREY)
+      elseif self.stage == 4 then
+        self:draw_message(
+          tile_to_pixel_pos({8, 2}),
+          "WELL.. I GIVE U MORE BBY", 
+          PALETTE_GREY)
+      elseif self.stage == 5 then
+        self:draw_message(
+          tile_to_pixel_pos({8, 2}),
+          "GOOD LUCK. >->", 
+          PALETTE_GREY)
+      end
+    elseif self.level == self.final_level then
+      level_manager:draw_message(
+        tile_to_pixel_pos({8, 3}),
+        "CONGRATS U WIN ;; <3",
+        PALETTE_ORANGE)
+      level_manager:draw_message(
+        tile_to_pixel_pos({8, 5}),
+        "TY 4 PLAYING MY LD JAM DEMO",
+        PALETTE_GREEN)
+      level_manager:draw_message(
+        tile_to_pixel_pos({8, 7}),
+        "FOLLOW ME ON TWITTER",
+        PALETTE_BLUE)
+      level_manager:draw_message(
+        tile_to_pixel_pos({8, 10}),
+        " - LAMBDANAUT",
+        PALETTE_GREY)
     end
   end
 
@@ -425,10 +547,10 @@ function make_level_manager()
       if self.stage > self.stage_count[self.level] then
         -- Next level
         self.time_since_last_stage = 0
-        self.stage = 1
         self.level += 1
         self:destroy_level()
         self:init_level()
+        self:init_stage()
       end
     end
 
@@ -919,7 +1041,7 @@ function make_bbys(bbys_pos)
   end
 end
 
-function make_bby(pos)
+function make_bby(pos, palette)
   local bby = {}
 
   -- Configurations
@@ -940,7 +1062,7 @@ function make_bby(pos)
     bby, 
     0.3,
     64, 
-    PALETTES[flr(rnd(PALETTES_LENGTH)) + 1])
+    palette or UNLOCKED_PALETTES[flr(rnd(#UNLOCKED_PALETTES)) + 1])
   bby.collider = make_collider(
     bby,
     8,
@@ -948,7 +1070,8 @@ function make_bby(pos)
 
   death_callback_fn = function(bby)
     sfx(SFX_BBY_DEATH)
-    bby.active = false
+
+    IN_PLAYER_LOST_SCREEN = true
   end
 
   bby.health = make_health(
@@ -1147,7 +1270,7 @@ function make_enemies(enemies_pos)
   end
 end
 
-function make_enemy(pos)
+function make_enemy(pos, palette)
   local enemy = {}
 
   -- Configurations
@@ -1158,14 +1281,15 @@ function make_enemy(pos)
   enemy.v = {0, 0}
   enemy.sprite = 128
   enemy.active = true
-  enemy.damage_dealt = 0.2
+  enemy.damage_dealt = 0.1
 
   -- Components
   enemy.animator = make_animator(
     enemy, 
     0.3,
     1, 
-    PALETTES[flr(rnd(PALETTES_LENGTH)) + 1])
+    palette or UNLOCKED_PALETTES[flr(rnd(#UNLOCKED_PALETTES)) + 1]
+  )
   enemy.collider = make_collider(
     enemy,
     8,
@@ -1288,6 +1412,8 @@ function make_wanderer(parent, wander_speed, frequency, duration, random_offset)
   wanderer.time_since_starting_wander = 0
   wanderer.is_wandering = false
 
+  wanderer.active = true
+
   wanderer.stop = function(self)
     -- Stops and resets the active wandering. Will start up again. 
     self.is_wandering = false
@@ -1297,47 +1423,49 @@ function make_wanderer(parent, wander_speed, frequency, duration, random_offset)
   end
 
   wanderer.wander = function(self)
-    if not self.is_wandering then
-      -- We're not wandering
+    if self.active then
+      if not self.is_wandering then
+        -- We're not wandering
 
-      -- Increment the time_since_last_wander count
-      self.time_since_last_wander += DELTA_TIME
+        -- Increment the time_since_last_wander count
+        self.time_since_last_wander += DELTA_TIME
 
-      if self.time_since_last_wander > self.frequency then
-        -- Start wandering
+        if self.time_since_last_wander > self.frequency then
+          -- Start wandering
 
-        local rand_x = rnd(3)
-        local rand_y = rnd(3)
-        local x = 0
-        local y = 0
-        -- Get random x value
-        if rand_x > 2 then 
-          x = self.wander_speed 
-        elseif rand_x > 1 then
-          x = -self.wander_speed 
-        else 
-          x = 0 
+          local rand_x = rnd(3)
+          local rand_y = rnd(3)
+          local x = 0
+          local y = 0
+          -- Get random x value
+          if rand_x > 2 then 
+            x = self.wander_speed 
+          elseif rand_x > 1 then
+            x = -self.wander_speed 
+          else 
+            x = 0 
+          end
+
+          -- Get random y value
+          if rand_y > 2 then 
+            y = self.wander_speed 
+          elseif rand_y > 1 then
+            y = -self.wander_speed 
+          else 
+            y = 0 
+          end
+
+          self.parent.v = {x, y}
+
+          self.is_wandering = true
         end
-
-        -- Get random y value
-        if rand_y > 2 then 
-          y = self.wander_speed 
-        elseif rand_y > 1 then
-          y = -self.wander_speed 
-        else 
-          y = 0 
+      else
+        -- We are wandering
+        self.time_since_starting_wander += DELTA_TIME
+        if self.time_since_starting_wander > self.duration then
+          -- Stop wandering
+          self:stop()
         end
-
-        self.parent.v = {x, y}
-
-        self.is_wandering = true
-      end
-    else
-      -- We are wandering
-      self.time_since_starting_wander += DELTA_TIME
-      if self.time_since_starting_wander > self.duration then
-        -- Stop wandering
-        self:stop()
       end
     end
   end
@@ -1833,6 +1961,12 @@ __sfx__
 011000001304113031135211304113531130211354113031130211304113531130211304113011135411301113041130311352113041135311302113541130311302113041135311302113041130111354113011
 011000000c7500f70010750000000c7500000010750000001175001000107500e7500c7500f70011750010001175014700107500e7500c7500200015750020001575003000137501175010750040000c75005000
 00100000185501d550185501c5001c5501f5501a5500050023550215501f5501d5501f5501d5501c550015001c5501d5501f5501a5001f55021550235500250023550215501f5501d5501c5501a5501855018500
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+010f00000e0500e050130500e050130500e0500e050150500e0500e050150500e050180500e050130500e050110500e050100500e050110500e050100500e0500e0500e0500c0500e0500e050100500e0500e050
+011000000c0733f2000c0000c0730c000296000c0733f2000c073000000c0000c0730c000000000c073000000c0733f200296000c0730c000000000c0733f2000c073000003f2000c0730c000000000c07300000
 __music__
 01 57174344
 01 56174b44
@@ -1852,4 +1986,8 @@ __music__
 00 14171854
 00 55571855
 00 41421844
+00 41424344
+00 41424344
+00 1e5f4344
+00 1e424344
 
