@@ -3,7 +3,7 @@ version 18
 __lua__
 
 -- DEBUG CONTROLS
-DEBUG = false
+DEBUG = true
 
 -- Constants
 MAP_SIZE_X = 16
@@ -63,9 +63,12 @@ SFX_BBY_DAMAGED = 9
 SFX_ENEMY_DAMAGED = 10
 SFX_HEAL_ALL_BBYS = 11
 SFX_SCRAMBLE_CHARS = 12
+SFX_CRASH = 13
+SFX_TALK = 14
 
-MUSIC_SPLASH_SCREEN = 20
+MUSIC_SPLASH_SCREEN = 50
 MUSIC_LVL1 = 0
+MUSIC_HELL = 20
 
 MUSIC_BITMASK = 3
 
@@ -208,7 +211,7 @@ function get_player_lost_input()
 end
 
 function draw_player_lost_message()
-  level_manager:draw_message(
+  level_manager:draw_msg(
     tile_to_pixel_pos({8, 7}),
     ":(  🐱 BBY DIED 🐱  :(  ", 
     PALETTE_GREY)
@@ -279,13 +282,13 @@ end
 function make_level_manager()
   level_manager = {}
 
-  level_manager.level = 5
+  level_manager.level = 3
   level_manager.stage = 1  -- The progression of the current level
   level_manager.stage_duration = 5
-  level_manager.final_level = 6
+  level_manager.final_level = 5
 
   -- Number of stages for each level, listed sequentially
-  level_manager.stage_count = {23, 26, 25, 5, 5}
+  level_manager.stage_count = {24, 27, 36, 28}
   level_manager.map_bounds = {x=1*8, y=1*8, w=15*8, h=15*8}  -- Rect of map bounds
 
   level_manager.enemy_spawn_tl = {0, 0}
@@ -297,7 +300,7 @@ function make_level_manager()
   level_manager.enemy_spawn_bl = {0, 17}
   level_manager.enemy_spawn_l = {0, 8}
 
-  level_manager.message_pos = tile_to_pixel_pos({8, 2})  -- position on screen to display dialogue messages at
+  level_manager.message_pos = tile_to_pixel_pos({8.5, 2})  -- position on screen to display dialogue messages at
 
   level_manager.time_since_last_stage = 0
 
@@ -353,7 +356,7 @@ function make_level_manager()
       local rock_pos = {
         {3, 4}, {5, 4}, {7, 4}, {9, 4}, {11, 4}, {13, 4},
         {4, 3}, {4, 5}, {4, 7}, {4, 9}, {4, 11}, {4, 13},
-        {13, 12}, {13, 10}, {13, 8}, {13, 6}, {13, 4}
+        {13, 12}, {13, 10}, {13, 8}, {13, 6}, 
       }
       make_rocks(rock_pos)
 
@@ -363,12 +366,11 @@ function make_level_manager()
       local rock_pos = {
         {3, 4}, {5, 4}, {7, 4}, {9, 4}, {11, 4}, {13, 4},
         {4, 3}, {4, 5}, {4, 7}, {4, 9}, {4, 11}, {4, 13},
-        {13, 12}, {13, 10}, {13, 8}, {13, 6}, {13, 4}
+        {13, 14}, {13, 12}, {13, 10}, {13, 8}, {13, 6},
+        {6, 13}, {8, 13}, {10, 13}, {12, 13}, {14, 13},
       }
       make_rocks(rock_pos)
     elseif self.level == 4 then
-      self.map_palette = PALETTE_GREY
-    elseif self.level == 5 then
       self.map_palette = PALETTE_ORANGE
     end
 
@@ -396,28 +398,44 @@ function make_level_manager()
       return
     end
 
+    if self.stage == 20 and self.level < 4then
+      -- Replay the music if it's stopped
+      music(MUSIC_LVL1, 0, MUSIC_BITMASK)
+    end
+
+    if DEBUG then return end
+
     -- Called once each time a new stage is entered
     if self.level == 1 then
-
       if self.stage == 1 then
+        self:draw_ui_msg("HI THERE 🅾️O🅾️  ")
+        sfx(SFX_TALK)
         make_bby({8, 6})
-        -- Skip a few stages (saferoom concept)
+      elseif self.stage == 2 then
+        self:draw_ui_msg("THIS IS UR BBY! 🅾️U🅾️  ")
+        sfx(SFX_TALK)
+      elseif self.stage == 3 then
+        self:draw_ui_msg("MOVE HER WITH A PUSH ♥ ")
+        sfx(SFX_TALK)
+      elseif self.stage == 4 then
+        self:draw_ui_msg("SHE HUNGR. HIT ROCK 4 FOOD!!")
+        sfx(SFX_TALK)
+      elseif self.stage == 5 then
+        self:draw_ui_msg("BUT MOST IMPORTANT... 🅾️_🅾️  ")
+        sfx(SFX_TALK)
       elseif self.stage == 6 then
-        -- First enemy then a pause
+        self:draw_ui_msg("SAVE HER FROM BEIN FOOD ❎~❎  ")
+        sfx(SFX_TALK)
         make_enemy(self.enemy_spawn_b)
-      elseif self.stage == 7 then
-        -- Two more enemies from the same location
+      elseif self.stage == 9 then
         make_enemy(self.enemy_spawn_b)
         make_enemy(self.enemy_spawn_b)
       elseif self.stage == 12 then
-        -- Two more enemies from the same location
         make_enemy(self.enemy_spawn_l)
         make_enemy(self.enemy_spawn_r)
       elseif self.stage == 15 then
-        -- Two more enemies from the same location
         make_enemy(self.enemy_spawn_r)
-      elseif self.stage == 18 then
-        -- Two more enemies from the same location
+      elseif self.stage == 19 then
         make_enemy(self.enemy_spawn_t)
         make_enemy(self.enemy_spawn_b)
         make_enemy(self.enemy_spawn_l)
@@ -426,8 +444,21 @@ function make_level_manager()
     elseif self.level == 2 then
       if self.stage == 1 then
         make_bby({8, 6}, PALETTE_ORANGE)
+        self:draw_ui_msg("HEWWO! ^o^ SO SRY 2 SEE...")
+        sfx(SFX_TALK)
+      elseif self.stage == 2 then
+        self:draw_ui_msg("  ...  ")
+        sfx(SFX_TALK)
+      elseif self.stage == 3 then
+        self:draw_ui_msg("WUT ❎∧🅾️ UR BBY ALIVE?   ")
+        sfx(SFX_TALK)
       elseif self.stage == 4 then
         make_bby({8, 7}, PALETTE_GREEN)
+        self:draw_ui_msg("WELL.. I GIVE U MORE BBY")
+        sfx(SFX_TALK)
+      elseif self.stage == 5 then
+        self:draw_ui_msg("GOOD LUCK. >->")
+        sfx(SFX_TALK)
       elseif self.stage == 6 then
         make_enemy(self.enemy_spawn_b, PALETTE_GREEN)
       elseif self.stage == 10 then
@@ -448,24 +479,84 @@ function make_level_manager()
       end
     elseif self.level == 3 then
       if self.stage == 1 then
+        self:draw_ui_msg("...")
+        sfx(SFX_TALK)
         make_bby({8, 6}, PALETTE_ORANGE)
         make_bby({8, 7}, PALETTE_GREEN)
+      elseif self.stage == 2 then
+        self:draw_ui_msg("XCUSE ME 🅾️_🅾️  ")
+        sfx(SFX_TALK)
       elseif self.stage == 3 then
-        make_bby({8, 7}, PALETTE_BLUE)
+        self:draw_ui_msg("...I MEAN... ♪_♪  ")
+        sfx(SFX_TALK)
+      elseif self.stage == 4 then
+        self:draw_ui_msg("R U RLY STIL ALIVE")
+        sfx(SFX_TALK)
       elseif self.stage == 5 then
+        self:draw_ui_msg("TAKE THIS ONE THEN")
+        sfx(SFX_TALK)
+        make_bby({8, 7}, PALETTE_BLUE)
+      elseif self.stage == 7 then
         make_enemy(self.enemy_spawn_bl, PALETTE_BLUE)
-      elseif self.stage == 6 then
+      elseif self.stage == 8 then
         make_enemy(self.enemy_spawn_br, PALETTE_BLUE)
-      elseif self.stage == 11 then
+      elseif self.stage == 13 then
         make_enemy(self.enemy_spawn_l, PALETTE_GREEN)
         make_enemy(self.enemy_spawn_r, PALETTE_ORANGE)
-      elseif self.stage == 15 then
+      elseif self.stage == 17 then
         make_enemy(self.enemy_spawn_tl, PALETTE_BLUE)
         make_enemy(self.enemy_spawn_bl, PALETTE_GREEN)
-      elseif self.stage == 21 then
+      elseif self.stage == 22 then
+        self:draw_ui_msg("WHAT THE SH*T")
+        sfx(SFX_TALK)
+      elseif self.stage == 23 then
+        self:draw_ui_msg("WHY WONT THEY DIE")
+        sfx(SFX_TALK)
+      elseif self.stage == 24 then
+        self:draw_ui_msg("WHY DO U PROTECT THEM")
+        sfx(SFX_TALK)
+      elseif self.stage == 25 then
+        self:draw_ui_msg("U DONT LOVE THEM")
+        sfx(SFX_TALK)
+      elseif self.stage == 26 then
+        self:draw_ui_msg("NOBODY LOVES THEM")
+        sfx(SFX_TALK)
+      elseif self.stage == 27 then
+        self:draw_ui_msg("...")
+        sfx(SFX_TALK)
+      elseif self.stage == 28 then
+        self:draw_ui_msg("HERE COME THE MNSTERS ☉∧☉   ")
+        sfx(SFX_TALK)
+      elseif self.stage == 29 then
         make_enemy(self.enemy_spawn_tl, PALETTE_BLUE)
         make_enemy(self.enemy_spawn_tr, PALETTE_GREEN)
         make_enemy(self.enemy_spawn_bl, PALETTE_ORANGE)
+        make_enemy(self.enemy_spawn_br, PALETTE_BLUE)
+      elseif self.stage == 31 then
+        make_enemy(self.enemy_spawn_t, PALETTE_BLUE)
+      elseif self.stage == 32 then
+        make_enemy(self.enemy_spawn_b, PALETTE_ORANGE)
+      end
+    elseif self.level == 4 then
+      if self.stage == 1 then
+        self:draw_ui_msg("HEY BUDDI... I THNK MAYBE...")
+        sfx(SFX_TALK)
+      elseif self.stage == 2 then
+        self:draw_ui_msg("WE GOT OFF ON WRONG FOOT.")
+        sfx(SFX_TALK)
+        music(-1, 600)
+      elseif self.stage == 3 then
+        self:draw_ui_msg("MAYB WE CAN TRY AGAIN")
+        sfx(SFX_TALK)
+      elseif self.stage == 4 then
+        self:draw_ui_msg("I JUST WANTED 2 SAY")
+        sfx(SFX_TALK)
+      elseif self.stage == 5 then
+        self:draw_ui_msg(".welcom to hell mothr fuckr.", 
+          PALETTE_BLACK)
+        sfx(SFX_CRASH)
+        music(MUSIC_HELL, 0, MUSIC_BITMASK)
+        self.map_palette = PALETTE_BLACK
       end
     elseif self.level == self.final_level then
       bby1=make_bby({2, 14}, PALETTE_ORANGE)
@@ -484,120 +575,6 @@ function make_level_manager()
 
     -- Update our ui do_for that let's us spawn messages
     self.ui_do_for:update()
-
-    if DEBUG then return end
-
-    if self.level == 1 then
-      if self.stage == 1 then
-        self:draw_message(
-          self.message_pos,
-          "HI THERE 🅾️O🅾️  ")
-      elseif self.stage == 2 then
-        self:draw_message(
-          self.message_pos,
-          "THIS IS UR BBY! 🅾️U🅾️  ")
-      elseif self.stage == 3 then
-        self:draw_message(
-          self.message_pos,
-          "MOVE HER WITH A PUSH ♥ ")
-      elseif self.stage == 4 then
-        self:draw_message(
-          self.message_pos,
-          "SHE HUNGR. HIT ROCK 4 FOOD!!")
-      elseif self.stage == 5 then
-        self:draw_message(
-          self.message_pos,
-          "BUT MOST IMPORTANT... 🅾️_🅾️  ")
-      elseif self.stage == 6 then
-        self:draw_message(
-          self.message_pos,
-          "SAVE HER FROM BEIN FOOD ❎~❎  ")
-      end
-    elseif self.level == 2 then
-      if self.stage == 1 then
-        self:draw_message(
-          self.message_pos,
-          "HEWWO! ^o^ SO SRY 2 SEE...")
-      elseif self.stage == 2 then
-        self:draw_message(
-          self.message_pos,
-          "  ...  ")
-      elseif self.stage == 3 then
-        self:draw_message(
-          self.message_pos,
-          "WUT ❎∧🅾️ UR BBY ALIVE?   ")
-      elseif self.stage == 4 then
-        self:draw_message(
-          self.message_pos,
-          "WELL.. I GIVE U MORE BBY")
-      elseif self.stage == 5 then
-        self:draw_message(
-          self.message_pos,
-          "GOOD LUCK. >->")
-      end
-    elseif self.level == 3 then
-      if self.stage == 1 then
-        self:draw_message(
-          self.message_pos,
-          "XCUSE ME 🅾️_🅾️  ")
-      elseif self.stage == 2 then
-        self:draw_message(
-          self.message_pos,
-          "...I MEAN... ♪_♪  ")
-      elseif self.stage == 3 then
-        self:draw_message(
-          self.message_pos,
-          "WELL.. TAKE THIS ONE THEN")
-      end
-    elseif self.level == 4 then
-      if self.stage == 1 then
-        self:draw_message(
-          self.message_pos,
-          "DIALOGUE")
-      elseif self.stage == 2 then
-        self:draw_message(
-          self.message_pos,
-          "MORE DIALOGUE")
-      end
-    elseif self.level == 5 then
-      if self.stage == 1 then
-        self:draw_message(
-          self.message_pos,
-          "HEY BUDDI... I THNK MAYBE...")
-      elseif self.stage == 2 then
-        self:draw_message(
-          self.message_pos,
-          "WE GET OFF ON WRONG FOOT.")
-        music(-1, 600)
-      elseif self.stage == 3 then
-        self:draw_message(
-          self.message_pos,
-          "I JUST WANNA SAY")
-      elseif self.stage == 4 then
-        self:draw_message(
-          self.message_pos,
-          ".welcom to hell mothr fuckr.", 
-          PALETTE_BLACK)
-        self.map_palette = PALETTE_BLACK
-        -- Play last level music here
-      end
-    elseif self.level == self.final_level then
-      level_manager:draw_message(
-        tile_to_pixel_pos({8, 3}),
-        "CONGRATS U WIN ;; <3",
-        PALETTE_ORANGE)
-      level_manager:draw_message(
-        tile_to_pixel_pos({8, 5}),
-        "TY 4 PLAYING MY LD JAM DEMO",
-        PALETTE_GREEN)
-      level_manager:draw_message(
-        tile_to_pixel_pos({8, 7}),
-        "FOLLOW ME ON TWITTER",
-        PALETTE_BLUE)
-      level_manager:draw_message(
-        tile_to_pixel_pos({8, 10}),
-        " - LAMBDANAUT")
-    end
   end
 
   level_manager.update = function(self)
@@ -685,13 +662,25 @@ function make_level_manager()
     end
   end
 
-  level_manager.draw_message = function(self, center_pos, message, palette, display_namebar, bar_length)
+  level_manager.draw_ui_msg = function(self, msg, palette, duration)
+    self.ui_do_for.callback_fn = function(l)
+      l:draw_msg(self.message_pos, msg, palette)
+    end 
+    if duration then
+      self.ui_do_for.duration = duration
+    else
+      self.ui_do_for.duration = 5
+    end
+    self.ui_do_for:start()
+  end
+
+  level_manager.draw_msg = function(self, center_pos, msg, palette, display_namebar, bar_length)
 
     if display_namebar or display_namebar == nil then
-      message_length = #message
+      msg_length = #msg
     else
       -- Trim the message length if we're not display the full name bar
-      message_length = 2
+      msg_length = 2
     end
 
     local bar_length = bar_length
@@ -700,7 +689,7 @@ function make_level_manager()
       local bar_length = max(0.0, bar_length or 1.0)
     end
     local padding = 2
-    local x_pos = center_pos[1] + 5 - message_length * 4 / 2 
+    local x_pos = center_pos[1] + 5 - msg_length * 4 / 2 
     local y_pos = center_pos[2]
     local bg_color = 6
 
@@ -724,12 +713,12 @@ function make_level_manager()
       rectfill(
         x_pos - padding,
         y_pos - padding,
-        x_pos + message_length * 4 ,
+        x_pos + msg_length * 4 ,
         y_pos + 5,
         bg_color)
 
       -- Draw message
-      print(message, x_pos, y_pos - 1, 0)
+      print(msg, x_pos, y_pos - 1, 0)
     end
 
     -- Draw bar
@@ -741,7 +730,7 @@ function make_level_manager()
       line(
         x_pos - padding,
         y_pos + 5,
-        x_pos + message_length * 4,
+        x_pos + msg_length * 4,
         y_pos + 5,
         bar_bg_color
       )
@@ -760,7 +749,7 @@ function make_level_manager()
         line(
           x_pos - padding,
           y_pos + 5,
-          x_pos - padding + (((message_length * 4) + padding) * bar_length),
+          x_pos - padding + (((msg_length * 4) + padding) * bar_length),
           y_pos + 5,
           bar_fill_color
         )
@@ -1019,17 +1008,17 @@ function make_item(sprite, pos)
     -- Adds an items modifier, affecting the game
     local s = self.sprite
 
-    local draw_message = function(msg)
+    local draw_msg = function(msg)
       -- Helper function to display a message for the item picked up
       level_manager.ui_do_for.callback_fn = function(l)
-        l:draw_message(l.message_pos, msg, PALETTE_PINK)
+        l:draw_msg(l.message_pos, msg, PALETTE_PINK)
       end 
       level_manager.ui_do_for:start()
     end
 
     if s == 69 then
       -- Meg cap
-      draw_message("IT'S A USELESS PINK HAT")
+      draw_msg("PINK HAT IS UTTERLY USELESS")
     elseif s == 70 then
       -- Flower
       -- Create food in random positions
@@ -1037,7 +1026,7 @@ function make_item(sprite, pos)
         local pos = tile_to_pixel_pos(random_tile_on_map())
         make_food(pos)
       end
-      draw_message("FOOD FOR THOUGHT")
+      draw_msg("FLOWER GENERATED FOOD")
     elseif s == 71 then
       -- Eye Patch
       for _, enemy in pairs(enemies.enemies) do
@@ -1046,53 +1035,53 @@ function make_item(sprite, pos)
           break
         end
       end
-      draw_message("ASSASSINATED A MONSTER")
+      draw_msg("EYEPATCH ASSASSINATED MONSTER")
     elseif s == 72 then
       -- Wig
       for _, enemy in pairs(enemies.enemies) do
         enemy.follower.target = nil
       end
-      draw_message("MONSTERS LOVE HER HAIR")
+      draw_msg("WIG ATTRACTS MONSTERS")
     elseif s == 73 then
       -- Crown
       for _ = 0, 10 do
         local pos = random_tile_on_map()
         make_rock(pos)
       end
-      draw_message("THERE'S A ROCKY ROAD AHEAD")
+      draw_msg("CROWN GENERATED ROCKS")
     elseif s == 74 then
       -- Clown nose
      sfx(SFX_HEAL_ALL_BBYS)
      for _, bby in pairs(bbys) do
        if bby.active then bby.health.health = 1.0 end
      end
-      draw_message("LAUGHTER HEALS")
+      draw_msg("CLOWN NOSE HEALED ALL")
     elseif s == 75 then
       -- Karate headband 
       bby.destroy_rocks_on_collision = true
-      draw_message("BREAK ROCKS WITH KARATE")
+      draw_msg("HEADBAND BREAKS ROCKS")
     elseif s == 76 then
       -- Bra
       bby.health.auto_dps_active = false
-      draw_message("CHUBBY BBY NO HUNGRY")
+      draw_msg("BRA STOPS HUNGER")
     elseif s == 85 then
       -- Dress
       bby.heal_bbys_on_collision = true
-      draw_message("TOUCH THE DRESS TO HEAL")
+      draw_msg("DRESS HEAL ON CONTACT")
     elseif s == 86 then
       -- Sunglasses
-      draw_message("MONSTERS SLOWED BY COOL BBY")
+      draw_msg("SUNGLASSES SLOWS MONSTERS")
     elseif s == 87 then
       -- Bandit bandana
-      draw_message("BAD BOI HURTS MONSTERS")
+      draw_msg("BANDANA HURTS MONSTERS")
     elseif s == 88 then
       -- Pants
       -- Code is in player.collide. Speed up player on collision
-      draw_message("GOTTA GO FAST")
+      draw_msg("PANTS UPS PUSHING SPEED")
     elseif s == 89 then
       -- Kenny hoody
       bby.health.direct_damage_active = false
-      draw_message("BBY GOTTA GO FAST")
+      draw_msg("COAT GIVES INVULNERABILITY")
     elseif s == 90 then
       -- Alien antlers
       -- Randomize locations of bbys and enemies
@@ -1106,17 +1095,17 @@ function make_item(sprite, pos)
           char.pos = pos
         end
       end
-      draw_message("BBBBZZZZZZZZT")
+      draw_msg("ANTENNAE TELEPORTS YOU")
     elseif s == 91 then
       -- Mask
       for _, enemy in pairs(enemies.enemies) do
         enemy.follower.target = nil
       end
-      draw_message("MONSTERS CANT SEE THROUGH MASK")
+      draw_msg("MASK HIDES FROM MONSTERS")
     elseif s == 92 then
       -- Box
       bby.wanderer.active = false
-      draw_message("STOPS BBY WANDERING")
+      draw_msg("BOX STOPS BBY WANDERING")
     end
 
   end
@@ -1157,8 +1146,8 @@ function make_item(sprite, pos)
       -- Pants
     elseif s == 89 then
       -- Kenny hoody
-    elseif s == 90 then
       bby.health.direct_damage_active = true
+    elseif s == 90 then
       -- Alien antlers
     elseif s == 91 then
       -- Mask
@@ -1337,7 +1326,7 @@ function make_bby(pos, palette)
     1.0, -- Max health
     SFX_BBY_DAMAGED, -- Damage sfx to play
     0.5, -- Cooldown duration
-    0.02, -- Auto damage taken per second
+    0.0125, -- Auto damage taken per second
     death_callback_fn  -- Callback function to call on death
   )
   bby.wanderer = make_wanderer(
@@ -1364,7 +1353,7 @@ function make_bby(pos, palette)
 
       local nametag = self.name
       if DEBUG then nametag = tostr(self.push_index) end
-      level_manager:draw_message({self.pos[1], self.pos[2] - 8}, nametag, self.animator.palette, DISPLAY_NAMEBAR_UI, self.health.health)
+      level_manager:draw_msg({self.pos[1], self.pos[2] - 8}, nametag, self.animator.palette, DISPLAY_NAMEBAR_UI, self.health.health)
     end
   end
 
@@ -1566,7 +1555,7 @@ function make_enemy(pos, palette)
   enemy.v = {0, 0}
   enemy.sprite = 128
   enemy.active = true
-  enemy.damage_dealt = 0.1
+  enemy.damage_dealt = 0.065
 
   enemy.default_speed = enemy.max_speed
   enemy.sunglasses_speed_modifier = 0.12
@@ -1644,7 +1633,7 @@ function make_enemy(pos, palette)
     if self.active then
       self.animator:animate()
       self.animator:draw()
-      level_manager:draw_message({self.pos[1], self.pos[2] - 8}, self.name, self.animator.palette, DISPLAY_NAMEBAR_UI, self.health.health)
+      level_manager:draw_msg({self.pos[1], self.pos[2] - 8}, self.name, self.animator.palette, DISPLAY_NAMEBAR_UI, self.health.health)
     end
   end
 
@@ -1997,6 +1986,10 @@ function make_do_for(parent, duration, callback_fn)
     self.time_left = self.duration
   end
 
+  do_for.stop = function(self)
+    self.time_left = 0
+  end
+
   return do_for
 end
 
@@ -2288,8 +2281,8 @@ __map__
 0012090202020202020202020202020312000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0012121212121212121212121212121212000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __sfx__
-000400000c0000a0000a000090000c000160000200002000030000200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00090000130501e050290502e05015050060500205002050010500200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+010e00000c4400c4300c4200c4400c4300c4200c4400c4300c4200c4400c4300c4200c4200c4100c4200c4100c4400c4300c4200c4400c4300c4200c4400c4300c4200c4400c4300c4200c4200c4100c4200c410
+00090000130501e050290502e0501505006050020500205001000060000c0001600026000360001a0000f0000d0001100016000250003c0001f0001b0001a00019000190001a0000000000000000000000000000
 000900000b2501a250282501625035250000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0003000019640316302e63031630243301b3300533000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -2300,9 +2293,9 @@ __sfx__
 000400002025020250192500a25002250112500025003250000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00090000130501e050290502e0501505006050020500205001050060500c0501605026050360501a0500f0500d0501105016050250503c0501f0501b0501a05019050190501a0500000000000000000000000000
-000500000d200152001c200242002c20033200382003220025200000000d20000200042001520000000272003220038200000002920021200092000e200162002620029200362003b20038200262000b20000000
-001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+010500000d200152001c200242002c20033200382003220025200000000d20000200042001520000000272003220038200000002920021200092000e200162002620029200362003b20038200262000b20000000
+000300003a673346732e67329673246731f6731d6731d6731b6731a67318673176731567313673126730d6730c673086730667304673026730067300673006730066500655006550065500655006550065500655
+000a00000b140061500e140061500b14006100001000b100001000010000100001000010000100001000010000100001000010000100001000010000100001000010000100001000010000100001000010000100
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -2320,6 +2313,15 @@ __sfx__
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 010f00000e0500e050130500e050130500e0500e050150500e0500e050150500e050180500e050130500e050110500e050100500e050110500e050100500e0500e0500e0500c0500e0500e050100500e0500e050
 011000000c0733f2000c0000c0730c000296000c0733f2000c073000000c0000c0730c000000000c073000000c0733f200296000c0730c000000000c0733f2000c073000003f2000c0730c000000000c07300000
+011000000c0733f2000c0733f2050c67029600187533f2030c073000001875300000186700000018753000000c0733f2000c0733f2001867000000186703f2000c07300000187531b30018670000001875300000
+011000000c0733f2000c0733f2050c67029600187533f2030c073000001875300000186700000018753000000c0733f2000c0733f2001867000000186703f2000c07300000187531b3003f2253f2253f2253f225
+011000001855018550245501f5001c5501c5001d5001d5501d5001c550245001a550185501a5501a5001a500185501a5502455000500305500050000500345500050034550005003255030550325500050000500
+01100000104420c4300c4200c4420c4300c4200c4420c4300c4200c4420c4300c4200c4220c4100c4200c4100c4420c4300c4200c4420c4300c4200c4420c4300c4200c4420c4300c4200c4220c4100c4200c410
+011000000c2740c2742450022274005001d274345001b2741e2740050024300112741c300005000c274303000c2740c2742450022274005001d274345001b27425274252742a274332741c300005000c27430300
+011000000c2740c2742450022274005001d274345001b2741e2740050024300112741c300005000c274303000c2740c2742450022274005001d274345001b2742327423274232742f2742f2742f2742f2742f274
+01100000185501a550245501f5001c5501c5001d5001d5501d5001c550245001a550185501a5501a5001a500185501a550245500050030550005000050034550005003455000500375503b5503c5503e5503c550
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000300003a600346002e60029600246001f6001d6001d6001b6001a60018600176001560013600126000d6000c600086000660004600026000060000600006000060000600006000160000600016000060000600
 __music__
 01 57174344
 01 56174b44
@@ -2341,6 +2343,36 @@ __music__
 00 41421844
 00 41424344
 00 41424344
-00 1e5f4344
+00 23626044
+00 23206044
+00 23206044
+00 23242044
+00 23242044
+00 23242044
+01 23252044
+00 23200d44
+00 23210d44
+00 23200d44
+00 23210d44
+00 22232144
+00 22232144
+00 22232044
+00 26232044
+00 23202444
+00 23212544
+00 23200d44
+00 23210d44
+00 230d2044
+00 23210d44
+00 23202244
+00 23202644
+00 23652044
+00 23652044
+00 23656044
+00 23656044
+00 41424344
+00 41424344
+00 41424344
+00 1e424344
 00 1e424344
 
