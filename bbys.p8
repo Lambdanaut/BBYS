@@ -288,7 +288,7 @@ function make_level_manager()
   level_manager.final_level = 5
 
   -- Number of stages for each level, listed sequentially
-  level_manager.stage_count = {24, 27, 36, 28}
+  level_manager.stage_count = {2, 27, 40, 28}
   level_manager.map_bounds = {x=1*8, y=1*8, w=15*8, h=15*8}  -- Rect of map bounds
 
   level_manager.enemy_spawn_tl = {0, 0}
@@ -507,27 +507,30 @@ function make_level_manager()
         make_enemy(self.enemy_spawn_tl, PALETTE_BLUE)
         make_enemy(self.enemy_spawn_bl, PALETTE_GREEN)
       elseif self.stage == 22 then
-        self:draw_ui_msg("WHAT THE SH*T")
-        sfx(SFX_TALK)
-      elseif self.stage == 23 then
-        self:draw_ui_msg("WHY WONT THEY DIE")
-        sfx(SFX_TALK)
-      elseif self.stage == 24 then
-        self:draw_ui_msg("WHY DO U PROTECT THEM")
-        sfx(SFX_TALK)
-      elseif self.stage == 25 then
-        self:draw_ui_msg("U DONT LOVE THEM")
-        sfx(SFX_TALK)
-      elseif self.stage == 26 then
-        self:draw_ui_msg("NOBODY LOVES THEM")
-        sfx(SFX_TALK)
-      elseif self.stage == 27 then
         self:draw_ui_msg("...")
         sfx(SFX_TALK)
+      elseif self.stage == 23 then
+        self:draw_ui_msg("WHAT THE SH*T")
+        sfx(SFX_TALK)
+      elseif self.stage == 24 then
+        self:draw_ui_msg("WHY WONT THEY DIE")
+        sfx(SFX_TALK)
+      elseif self.stage == 25 then
+        self:draw_ui_msg("WHY DO U PROTECT THEM")
+        sfx(SFX_TALK)
+      elseif self.stage == 26 then
+        self:draw_ui_msg("U DONT LOVE THEM")
+        sfx(SFX_TALK)
+      elseif self.stage == 27 then
+        self:draw_ui_msg("NOBODY LOVES THEM")
+        sfx(SFX_TALK)
       elseif self.stage == 28 then
-        self:draw_ui_msg("HERE COME THE MNSTERS ☉∧☉   ")
+        self:draw_ui_msg("...")
         sfx(SFX_TALK)
       elseif self.stage == 29 then
+        self:draw_ui_msg("HERE COME THE MNSTERS ☉∧☉   ")
+        sfx(SFX_TALK)
+      elseif self.stage == 30 then
         make_enemy(self.enemy_spawn_tl, PALETTE_BLUE)
         make_enemy(self.enemy_spawn_tr, PALETTE_GREEN)
         make_enemy(self.enemy_spawn_bl, PALETTE_ORANGE)
@@ -536,6 +539,8 @@ function make_level_manager()
         make_enemy(self.enemy_spawn_t, PALETTE_BLUE)
       elseif self.stage == 32 then
         make_enemy(self.enemy_spawn_b, PALETTE_ORANGE)
+      elseif self.stage == 33 then
+        make_enemy(self.enemy_spawn_b, PALETTE_GREEN)
       end
     elseif self.level == 4 then
       if self.stage == 1 then
@@ -544,7 +549,7 @@ function make_level_manager()
       elseif self.stage == 2 then
         self:draw_ui_msg("WE GOT OFF ON WRONG FOOT.")
         sfx(SFX_TALK)
-        music(-1, 600)
+        music(-1, 3000)
       elseif self.stage == 3 then
         self:draw_ui_msg("MAYB WE CAN TRY AGAIN")
         sfx(SFX_TALK)
@@ -662,7 +667,10 @@ function make_level_manager()
     end
   end
 
-  level_manager.draw_ui_msg = function(self, msg, palette, duration)
+  level_manager.draw_ui_msg = function(self, msg, palette, duration, dont_overwrite)
+    if dont_overwrite and self.ui_do_for.time_left > 0 then
+      return
+    end 
     self.ui_do_for.callback_fn = function(l)
       l:draw_msg(self.message_pos, msg, palette)
     end 
@@ -983,7 +991,7 @@ function make_item(sprite, pos)
     1.0,  -- Max health
     nil, -- Damage SFX to play
     nil, -- Cooldown duration
-    0.1,  -- Auto damage taken per second
+    0.07,  -- Auto damage taken per second
     death_callback_fn  -- Callback function to call on death
   )
 
@@ -1010,10 +1018,7 @@ function make_item(sprite, pos)
 
     local draw_msg = function(msg)
       -- Helper function to display a message for the item picked up
-      level_manager.ui_do_for.callback_fn = function(l)
-        l:draw_msg(l.message_pos, msg, PALETTE_PINK)
-      end 
-      level_manager.ui_do_for:start()
+      level_manager:draw_ui_msg(msg, PALETTE_PINK, 3.5, true)
     end
 
     if s == 69 then
@@ -1497,7 +1502,6 @@ function make_bby(pos, palette)
         local bounceback_modifier = 1
         if self.destroy_rocks_on_collision then
           rock.health:damage(0.99)
-          bounceback_modifier = 2 -- bounce back further when attacking it
         end
         self.is_colliding_with_unwalkable = true
         local collision_direction = self.collider:get_collision_direction(rock)
@@ -1505,16 +1509,16 @@ function make_bby(pos, palette)
         -- Note: Offset position by 1 so we hopefully don't get stuck on rocks as much
         if collision_direction == TOP_COLLISION then
           -- Colliding top
-          self.pos[2] = rock.pos[2] + self.collider.rect.h + bounceback_modifier
+          self.pos[2] = rock.pos[2] + self.collider.rect.h
         elseif collision_direction == BOTTOM_COLLISION then
           -- Colliding bottom
-          self.pos[2] = rock.pos[2] - self.collider.rect.h - bounceback_modifier
+          self.pos[2] = rock.pos[2] - self.collider.rect.h
         elseif collision_direction == LEFT_COLLISION then
           -- Colliding left
-          self.pos[1] = rock.pos[1] + self.collider.rect.w + bounceback_modifier
+          self.pos[1] = rock.pos[1] + self.collider.rect.w
         elseif collision_direction == RIGHT_COLLISION then
           -- Colliding  right
-          self.pos[1] = rock.pos[1] - self.collider.rect.w - bounceback_modifier
+          self.pos[1] = rock.pos[1] - self.collider.rect.w 
         end
       end
     end
@@ -1850,10 +1854,10 @@ function make_collider(parent, w, h, offset)
 
     self.rect = {x=offset_x, y=offset_y, w=self.rect.w, h=self.rect.h}
 
-    self.t = {x=offset_x + 2, y=offset_y, w=self.rect.w - 4, h=self.rect.h / 2}
-    self.b = {x=offset_x + 2, y=offset_y + self.rect.h / 2, w=self.rect.w - 4, h=self.rect.h / 2}
-    self.l = {x=offset_x, y=offset_y + 2, w=self.rect.w / 2, h=self.rect.h - 4}
-    self.r = {x=offset_x + self.rect.w / 2, y=offset_y + 2, w=self.rect.w / 2, h=self.rect.h - 4}
+    self.t = {x=offset_x + 1, y=offset_y, w=self.rect.w - 2, h=self.rect.h / 2}
+    self.b = {x=offset_x + 1, y=offset_y + self.rect.h / 2, w=self.rect.w - 2, h=self.rect.h / 2}
+    self.l = {x=offset_x, y=offset_y + 1, w=self.rect.w / 2, h=self.rect.h - 2}
+    self.r = {x=offset_x + self.rect.w / 2, y=offset_y + 1, w=self.rect.w / 2, h=self.rect.h - 2}
   end
   collider:update()
 
