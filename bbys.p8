@@ -3,7 +3,7 @@ version 18
 __lua__
 
 -- DEBUG CONTROLS
-DEBUG = true
+DEBUG = false
 
 -- Constants
 MAP_SIZE_X = 16
@@ -35,7 +35,7 @@ FOOD_STEAK_INDEX = 145
 BBY_NAMES = {
   "JON", "BETTY", "SAL", "CAT", "JOSH", "K8E", "JACK", "ANDY", "SCOTT", "ERICA", "JOEL", 
   "NOODL", "JEFF", "GORBY", "VINNY", "BBYCAKE", "CHARLI", "BBYJESUS", "TIPPR", "MAMA", "BABA", "DAN", "LUA", "LUNA",
-  "GOOBY", "GARFO", "BBYHITLR", "MR BBY", "CARL", "UGLI", "QTBBY", "MARI", "GRINCH", "CONWAY", "GARTH",
+  "GOOBY", "GARFO", "BBYHITLR", "MR BBY", "CARL", "UGLI", "MARI", "GRINCH", "CONWAY", "GARTH",
   "MARK", "TOM", "SPUD", "ADRI", "LINDA", "RAINY", "FROGI", "MARSHL", "SEAN", "SANS", "ANG", "GENO", "MARIO", "PEACH",
   "DAISY", "BRIT", "KYLE", "TESS", "NIC", "NICK", "RYAN", "HALY", "TERAN", "WINDY", "KENNY"
 }
@@ -65,6 +65,8 @@ SFX_HEAL_ALL_BBYS = 11
 SFX_SCRAMBLE_CHARS = 12
 SFX_CRASH = 13
 SFX_TALK = 14
+SFX_BOSS1_DAMAGED = 15
+SFX_BOSS1_DEATH = 16
 
 MUSIC_SPLASH_SCREEN = 50
 MUSIC_LVL1 = 0
@@ -282,7 +284,7 @@ end
 function make_level_manager()
   level_manager = {}
 
-  level_manager.level = 3
+  level_manager.level = 4
   level_manager.stage = 1  -- The progression of the current level
   level_manager.stage_duration = 5
   level_manager.final_level = 5
@@ -321,6 +323,7 @@ function make_level_manager()
     make_bbys()
     make_enemies()
     make_rocks()
+    make_projectiles()
 
     self.stage = 1
 
@@ -372,6 +375,15 @@ function make_level_manager()
       make_rocks(rock_pos)
     elseif self.level == 4 then
       self.map_palette = PALETTE_ORANGE
+      local rock_pos = {}
+      for x = 2, 15 do
+        add(rock_pos, {x, 4})
+        add(rock_pos, {x, 5})
+        add(rock_pos, {x, 6})
+        add(rock_pos, {x, 7})
+        add(rock_pos, {x, 8})
+      end
+      make_rocks(rock_pos)
     end
 
   end
@@ -546,6 +558,17 @@ function make_level_manager()
       if self.stage == 1 then
         self:draw_ui_msg("HEY BUDDI... I THNK MAYBE...")
         sfx(SFX_TALK)
+        local bby1 = make_bby({6, 14}, PALETTE_ORANGE)
+        local bby2 = make_bby({8, 14}, PALETTE_GREEN)
+        local bby3 = make_bby({10, 14}, PALETTE_BLUE)
+        bby1.wanderer.active = false
+        bby2.wanderer.active = false
+        bby3.wanderer.active = false
+        bby1.pos[1] += 4
+        bby2.pos[1] += 4
+        bby3.pos[1] += 4
+        player.pos[1] += 4
+        player.pos[2] += 24
       elseif self.stage == 2 then
         self:draw_ui_msg("WE GOT OFF ON WRONG FOOT.")
         sfx(SFX_TALK)
@@ -562,6 +585,9 @@ function make_level_manager()
         sfx(SFX_CRASH)
         music(MUSIC_HELL, 0, MUSIC_BITMASK)
         self.map_palette = PALETTE_BLACK
+        for _, bby in pairs(bbys) do
+          bby.wanderer.active = true
+        end
       end
     elseif self.level == self.final_level then
       bby1=make_bby({2, 14}, PALETTE_ORANGE)
@@ -785,6 +811,7 @@ function make_player(pos)
   player.sprite = 64
   player.v = {0, 0}
   player.active = true
+  player.movement_enabled = true
 
   player.max_speed_collision_modifier = 2.0  -- Amount to set max_speed to when colliding with a bby with pants
   player.default_speed = player.max_speed
@@ -794,7 +821,7 @@ function make_player(pos)
     player,
     0.1,
     1,
-    PALETTES[flr(rnd(PALETTES_LENGTH)) + 1],
+    PALETTE_ORANGE,
     false)
   player.collider = make_collider(
     player,
@@ -802,7 +829,9 @@ function make_player(pos)
     8)
 
   player.update = function(self)
-    self:move()
+    if self.movement_enabled then
+      self:move()
+    end
     self.collider:update()
     self:collide()
     self:update_position()
@@ -919,9 +948,13 @@ function make_player(pos)
     end
 
     -- Do rock collision
+    local has_damaged_rock = false
     for _, rock in pairs(rocks.rocks) do
       if rock.active and self.collider:is_colliding(rock) then
-        rock.health:damage(self.damage_to_rocks)
+        if not has_damaged_rock then
+          rock.health:damage(self.damage_to_rocks)
+          has_damaged_rock = true
+        end
         local collision_direction = self.collider:get_collision_direction(rock)
         if collision_direction == TOP_COLLISION then
           -- Colliding top
@@ -1375,14 +1408,113 @@ function make_bby(pos, palette)
   end
 
   bby.collide = function(self, i)
-    -- Set flag if colliding with player
-    local colliding_with_player = false
-    if player.active and self.collider:is_colliding(player) then
-      colliding_with_player = true
-    end
-
     -- Do bby collision
     self.is_pushed_by_bby = false
+
+    self:collide_bbys()
+    self:collide_enemies()
+    self:collide_food()
+    self:collide_items()
+    self:collide_rocks()
+
+    if i==nil then
+      self:collide(false)
+    end
+
+  end
+
+  bby.collide_rocks = function (self)
+    -- Do rock collision
+    self.is_colliding_with_unwalkable = false
+    for _, rock in pairs(rocks.rocks) do
+      if rock.active and self.collider:is_colliding(rock) then
+        local bounceback_modifier = 1
+        if self.destroy_rocks_on_collision then
+          rock.health:damage(0.99)
+        end
+        self.is_colliding_with_unwalkable = true
+        local collision_direction = self.collider:get_collision_direction(rock)
+        
+        -- Note: Offset position by 1 so we hopefully don't get stuck on rocks as much
+        if collision_direction == TOP_COLLISION then
+          -- Colliding top
+          self.pos[2] = rock.pos[2] + self.collider.rect.h
+        elseif collision_direction == BOTTOM_COLLISION then
+          -- Colliding bottom
+          self.pos[2] = rock.pos[2] - self.collider.rect.h
+        elseif collision_direction == LEFT_COLLISION then
+          -- Colliding left
+          self.pos[1] = rock.pos[1] + self.collider.rect.w
+        elseif collision_direction == RIGHT_COLLISION then
+          -- Colliding  right
+          self.pos[1] = rock.pos[1] - self.collider.rect.w 
+        end
+      end
+    end
+  end
+
+  bby.collide_items = function (self)
+    -- Do Item collision
+    for _, item in pairs(items.items) do
+      if item.active and self.collider:is_colliding(item) then
+        -- Revert the previous item's effects
+        if self.current_item then
+          self.current_item:revert_modifier(self)
+        end
+        -- Apply the new item's effects
+        item:apply_modifier(self)
+
+        self.sprite = item:to_bby()
+        self.current_item = item
+        item.active = false
+
+        sfx(SFX_CONSUME_ITEM)
+      end
+    end
+  end
+
+  bby.collide_food = function (self)
+    -- Do Food collision
+    for _, food in pairs(foods.foods) do
+      if food.active and self.collider:is_colliding(food) then
+        self.health:heal(food.health_given)
+        food.active = false
+        sfx(SFX_CONSUME_FOOD)
+      end
+    end
+  end
+
+  bby.collide_enemies = function (self)
+    -- Do enemy collision
+    for _, enemy in pairs(enemies.enemies) do
+      if enemy.active and self.collider:is_colliding(enemy) then
+        -- Get hurt
+        self.health:damage(enemy.damage_dealt)
+
+        -- Do damage to enemy if we're wearing the bandana
+        if self.current_item ~= nil and self.current_item.sprite == 87 then
+          enemy.health:damage(self.bandana_damage_dealt)
+        end
+
+        local collision_direction = self.collider:get_collision_direction(enemy)
+        if collision_direction == TOP_COLLISION then
+          -- Colliding top
+          self.pos[2] = enemy.pos[2] + self.collider.rect.h
+        elseif collision_direction == BOTTOM_COLLISION then
+          -- Colliding bottom
+          self.pos[2] = enemy.pos[2] - self.collider.rect.h
+        elseif collision_direction == LEFT_COLLISION then
+          -- Colliding left
+          self.pos[1] = enemy.pos[1] + self.collider.rect.w
+        elseif collision_direction == RIGHT_COLLISION then
+          -- Colliding  right
+          self.pos[1] = enemy.pos[1] - self.collider.rect.w
+        end
+      end
+    end
+  end
+
+  bby.collide_bbys = function(self)
     for _, other_bby in pairs(bbys) do
       if other_bby ~= self then
         if self.collider:is_colliding(other_bby) then
@@ -1440,99 +1572,73 @@ function make_bby(pos, palette)
       end
     end
 
-    -- Do enemy collision
-    for _, enemy in pairs(enemies.enemies) do
-      if enemy.active and self.collider:is_colliding(enemy) then
-        -- Get hurt
-        self.health:damage(enemy.damage_dealt)
-
-        -- Do damage to enemy if we're wearing the bandana
-        if self.current_item ~= nil and self.current_item.sprite == 87 then
-          enemy.health:damage(self.bandana_damage_dealt)
-        end
-
-        local collision_direction = self.collider:get_collision_direction(enemy)
-        if collision_direction == TOP_COLLISION then
-          -- Colliding top
-          self.pos[2] = enemy.pos[2] + self.collider.rect.h
-        elseif collision_direction == BOTTOM_COLLISION then
-          -- Colliding bottom
-          self.pos[2] = enemy.pos[2] - self.collider.rect.h
-        elseif collision_direction == LEFT_COLLISION then
-          -- Colliding left
-          self.pos[1] = enemy.pos[1] + self.collider.rect.w
-        elseif collision_direction == RIGHT_COLLISION then
-          -- Colliding  right
-          self.pos[1] = enemy.pos[1] - self.collider.rect.w
-        end
-      end
-    end
-
-    -- Do Food collision
-    for _, food in pairs(foods.foods) do
-      if food.active and self.collider:is_colliding(food) then
-        self.health:heal(food.health_given)
-        food.active = false
-        sfx(SFX_CONSUME_FOOD)
-      end
-    end
-
-    -- Do Item collision
-    for _, item in pairs(items.items) do
-      if item.active and self.collider:is_colliding(item) then
-        -- Revert the previous item's effects
-        if self.current_item then
-          self.current_item:revert_modifier(self)
-        end
-        -- Apply the new item's effects
-        item:apply_modifier(self)
-
-        self.sprite = item:to_bby()
-        self.current_item = item
-        item.active = false
-
-        sfx(SFX_CONSUME_ITEM)
-      end
-    end
-
-    -- Do rock collision
-    self.is_colliding_with_unwalkable = false
-    for _, rock in pairs(rocks.rocks) do
-      if rock.active and self.collider:is_colliding(rock) then
-        local bounceback_modifier = 1
-        if self.destroy_rocks_on_collision then
-          rock.health:damage(0.99)
-        end
-        self.is_colliding_with_unwalkable = true
-        local collision_direction = self.collider:get_collision_direction(rock)
-        
-        -- Note: Offset position by 1 so we hopefully don't get stuck on rocks as much
-        if collision_direction == TOP_COLLISION then
-          -- Colliding top
-          self.pos[2] = rock.pos[2] + self.collider.rect.h
-        elseif collision_direction == BOTTOM_COLLISION then
-          -- Colliding bottom
-          self.pos[2] = rock.pos[2] - self.collider.rect.h
-        elseif collision_direction == LEFT_COLLISION then
-          -- Colliding left
-          self.pos[1] = rock.pos[1] + self.collider.rect.w
-        elseif collision_direction == RIGHT_COLLISION then
-          -- Colliding  right
-          self.pos[1] = rock.pos[1] - self.collider.rect.w 
-        end
-      end
-    end
-
-    if i==nil then
-      self:collide(false)
-    end
-
   end
 
   bbys[#bbys + 1] = bby
 
   return bby
 
+end
+
+function make_boss1(pos)
+  -- Inherits from bby
+  local boss1 = make_bby(palette)
+
+  -- Configurations
+  boss1.max_speed = 0.2
+
+  boss1.name = "SHARON"
+  boss1.active = true
+  boss1.damage_dealt = 0.065
+
+  boss1.default_speed = boss1.max_speed
+
+  -- Components
+  boss1.collider = make_collider(
+    boss1,
+    8,
+    8)
+  boss1.do_for = make_do_for(boss1, 5, nil)
+
+  death_callback_fn = function(boss)
+    sfx(SFX_BOSS1_DEATH)
+  end
+  boss1.health = make_health(
+    boss1,
+    1.0, -- Max health
+    SFX_BOSS1_DAMAGED, -- Damage sfx to play
+    0.1, -- Cooldown duration
+    0.05, -- Auto damage taken per second
+    death_callback_fn  -- Callback function to call on death
+  )
+end
+
+function make_projectiles()
+  projectiles = {}
+end
+
+function make_projectile(pos, sprite, vel, duration)
+  local p = {}
+
+  p.pos = pos
+  p.vel = vel
+  p.duration = duration
+  p.sprite = sprite
+
+  p.active = true
+
+  -- Components
+  p.collider = make_collider(
+    p, 4, 4)
+
+  do_for_expired_fn = function(p) 
+    p.active = false
+  end
+  p.do_for = make_do_for(p, p.duration, nil, do_for_expired_fn)
+
+  projectiles.projectiles[#projectiles.projectiles + 1] = p
+
+  return p
 end
 
 -- Enemy code
@@ -1854,8 +1960,8 @@ function make_collider(parent, w, h, offset)
 
     self.rect = {x=offset_x, y=offset_y, w=self.rect.w, h=self.rect.h}
 
-    self.t = {x=offset_x + 1, y=offset_y, w=self.rect.w - 2, h=self.rect.h / 2}
-    self.b = {x=offset_x + 1, y=offset_y + self.rect.h / 2, w=self.rect.w - 2, h=self.rect.h / 2}
+    self.t = {x=offset_x + 2, y=offset_y, w=self.rect.w - 4, h=self.rect.h / 2}
+    self.b = {x=offset_x + 2, y=offset_y + self.rect.h / 2, w=self.rect.w - 4, h=self.rect.h / 2}
     self.l = {x=offset_x, y=offset_y + 1, w=self.rect.w / 2, h=self.rect.h - 2}
     self.r = {x=offset_x + self.rect.w / 2, y=offset_y + 1, w=self.rect.w / 2, h=self.rect.h - 2}
   end
@@ -1892,7 +1998,6 @@ function make_collider(parent, w, h, offset)
   return collider
 
 end
-
 
 -- Health
 function make_health(parent, 
@@ -1966,7 +2071,7 @@ function make_health(parent,
 end
 
 
-function make_do_for(parent, duration, callback_fn)
+function make_do_for(parent, duration, callback_fn, expired_fn)
   -- Calls a callback function n amount of times per second(default is every frame) until duration expires
   -- Call start() to start the timer
   local do_for = {}
@@ -1974,20 +2079,26 @@ function make_do_for(parent, duration, callback_fn)
   do_for.parent = parent
   do_for.duration = duration
   do_for.callback_fn = callback_fn
+  do_for.expired_fn = expired_fn
 
+  do_for_has_expired = false
   do_for.time_left = 0
 
   do_for.update = function(self)
     if self.time_left > 0 then
       self.time_left -= DELTA_TIME
       if self.callback_fn ~= nil then
-        self.callback_fn(parent)
+        self.callback_fn(self.parent)
       end
+    elseif not self.has_expired and self.expired_fn ~= nil then
+      self.expired_fn(self.parent)
+      self.has_expired = true
     end
   end
 
   do_for.start = function(self)
     self.time_left = self.duration
+    self.has_expired = false
   end
 
   do_for.stop = function(self)
@@ -1996,8 +2107,6 @@ function make_do_for(parent, duration, callback_fn)
 
   return do_for
 end
-
-
 
 -- Linear Interpolation functions
 function lerp(a, b, t)
@@ -2135,21 +2244,21 @@ end
 
 
 __gfx__
-000000007777f77f777777777f7777f97f7777f999999999999999999999999999f7777799f77777000000994999000000000000000000000000000000000000
-0000000077f777777f777f7777777f9977777f999f9f9999f9f9f9f99999f9f99f77f7f79f7f7f77000999494999990000000000000000000000000000000000
-0070070077777f77777f7777777f77f9777f77f9f777f9997f7f7f7f99ff7f7f99f7777799f7777f009999999944499000000000000000000000000000000000
-00077000f77777777f777f7f7f7777f97f777f9977777f99777777779f7777f79f7f77f79f777777099449949499949000000000000000000000000000000000
-000770007777f7777777777777777f99777777f977f777f9777f777f99f7f77799f7777799f77f77994999499949999900000000000000000000000000000000
-0070070077f7777ff7f7f7f7f7f7f999777f7f9977777f997f777f779f77777f9f777f77999ff7f7999994999994999900000000000000000000000000000000
-00000000777777779f9f9f9f9f9f99997f7777f97f7f77f9777f777799f777f799f7777799999f9f99999999f994999900000000000000000000000000000000
-000000007f7777f7999999999999999977777f9977777f99777777779f77f7779f77f7f79999999999e49999fe999e9900000000000000000000000000000000
+000000007777f77f777777777f7777f97f7777f999999999999999999999999999f7777799f77777000000994999000000000000000000000000000000888800
+0000000077f777777f777f7777777f9977777f999f9f9999f9f9f9f99999f9f99f77f7f79f7f7f77000999494999990000000000000000000000000008a99a80
+0070070077777f77777f7777777f77f9777f77f9f777f9997f7f7f7f99ff7f7f99f7777799f7777f00999999994449900000000000000000000000008a9aa9a8
+00077000f77777777f777f7f7f7777f97f777f9977777f99777777779f7777f79f7f77f79f777777099449949499949000000000000000000000000089a88a98
+000770007777f7777777777777777f99777777f977f777f9777f777f99f7f77799f7777799f77f77994999499949999900000000000000000000000089a88a98
+0070070077f7777ff7f7f7f7f7f7f999777f7f9977777f997f777f779f77777f9f777f77999ff7f799999499999499990000000000000000000000008a9aa9a8
+00000000777777779f9f9f9f9f9f99997f7777f97f7f77f9777f777799f777f799f7777799999f9f99999999f994999900000000000000000000000008a99a80
+000000007f7777f7999999999999999977777f9977777f99777777779f77f7779f77f7f79999999999e49999fe999e9900000000000000000000000000888800
 000000000000000099999999000000000000000000000000000000000000000000000000000000009ee999eefee99e0900000000000000000000000000000000
-000000000000000099999999000000000000000000000000000000000000000000000000000000009e999eeef9e9900900000000000000000000000000000000
-0000000000000000999999990000000000000000000000000000000000000000000000000000000090999eeef990900900000000000000000000000000000000
-00000000000000009999999900000000000000000000000000000000000000000000000000000000909909eff990900900000000000000000000000000000000
-000000000000000099999999000000000000000000000000000000000000000000000000000000009099099ff990900000000000000000000000000000000000
-000000000000000099999999000000000000000000000000000000000000000000000000000000000090099ff990900000000000000000000000000000000000
-000000000000000099999999000000000000000000000000000000000000000000000000000000000090009ff900900000000000000000000000000000000000
+000000000000000099999999000000000000000000000000000000000000000000000000000000009e999eeef9e9900900000000000000000000000008800880
+0000000000000000999999990000000000000000000000000000000000000000000000000000000090999eeef990900900000000000000000000000087728882
+00000000000000009999999900000000000000000000000000000000000000000000000000000000909909eff990900900000000000000000000000088888882
+000000000000000099999999000000000000000000000000000000000000000000000000000000009099099ff990900000000000000000000000000008888820
+000000000000000099999999000000000000000000000000000000000000000000000000000000000090099ff990900000000000000000000000000000888200
+000000000000000099999999000000000000000000000000000000000000000000000000000000000090009ff900900000000000000000000000000000022000
 000000000000000099999999000000000000000000000000000000000000000000000000000000000090009ff900000000000000000000000000000000000000
 00eeee0000999e0e0e9999000eeeeee00e9ee9e000999900e09999000099990000999900000000000090009ff900000000000000000000000000000000000000
 0eeeeee0097aaae009eaaa9eeeeeeeee0eeeeee0097aaa900eeeeee0097aaa90097aaa90000000000000009f9400000000000000000000000000000000000000
@@ -2168,20 +2277,20 @@ ee9aa9eeee7aaee7eeeeeeeeee9aa9eeee9aa9eeee9aa9eeeeeaaeeeee9aa9ee0000000000000000
 00eeee000099990000eeee0000eeee0000eeee000099990000999900e099990e0000000000000000000449999994400005999950000000000000000000000000
 0eaeeae009900990099ee9900ee00ee00ee00ee00990099009900990eeeeeeee0000000000000000000044444444000000555500000000000000000000000000
 0e8eeee00e8eeee00e8eeee000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-888888808888888088888880000000000000000000000000000eee00ee00000000eeeee0000ee00000000000e000000000e4ee00000000000000000000000000
-099a9a90099a9a90099a9a90000000000000000000000000000eee0044e000000eeeeeeee0eeee0e000ee0000e000000eee4eee4000000000000000000000000
-09aaaa9009aaaa9009aaaa90000000000000000000eeee00ee04e4ee004e000eee4ee4eeeeeeeeee00eeee4000eeeeeeeee4eee4000000000000000000000000
-00999990009999900099999000000000000000000eeeeee0eee04eee0004eee4ee4e40ee4444444400eeee4000eeeeeeeee4eee4000000000000000000000000
-099eee90099eee90099eee900000000000000000eeeeeeeeee4e44ee0004eee4e444004e00000000004ee4000e44444444404440000000000000000000000000
-00999990099999900099999000000000000000004444444400eee00000004e404e4004e40000000000044000e400000000000000000000000000000000000000
+888888808888888088888880000000000000000000000000000eee00ee00000000eeeee0000ee00000000000e000000000e4ee00000000000000000000888800
+099a9a90099a9a90099a9a90000000000000000000000000000eee0044e000000eeeeeeee0eeee0e000ee0000e000000eee4eee4000000000000000008a99a80
+09aaaa9009aaaa9009aaaa90000000000000000000eeee00ee04e4ee004e000eee4ee4eeeeeeeeee00eeee4000eeeeeeeee4eee4000000000000000008988980
+00999990009999900099999000000000000000000eeeeee0eee04eee0004eee4ee4e40ee4444444400eeee4000eeeeeeeee4eee4000000000000000008988980
+099eee90099eee90099eee900000000000000000eeeeeeeeee4e44ee0004eee4e444004e00000000004ee4000e44444444404440000000000000000008a99a80
+00999990099999900099999000000000000000004444444400eee00000004e404e4004e40000000000044000e400000000000000000000000000000000888800
 09900990000009900990000000000000000000000000000000eee000000004000400004000000000000000004000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000eeee00000000000000000000000000000000000000000000000000
-0000000000000000000000000000000000000000eeeeeeee0000000000000000077777700eeeeee000000000e000000e0eeeeee4000000000000000000000000
-000000000000000000000000000000000000000000eeee447eeee7eeeeeeeeee0eeeeee4eeeeeeeee000000eeeeeeeee0eeeeee4000000000000000000000000
-0000000000000000000000000000000000000000000ee400e7eeee7e4eeeeee40ee40ee4eeeeeeeeee0000eee00ee00e0eeeeee4000000000000000000000000
-000000000000000000000000000000000000000000eeee00ee744ee704eeee400ee40ee4eeeeeeee4ee00ee4e00ee00e0eeeeee4000000000000000000000000
-00000000000000000000000000000000000000000eeeeee044400444004ee4000ee40ee44eeeeee404e40e40eee44eee0eeeeee4000000000000000000000000
-0000000000000000000000000000000000000000eeeeeeee00000000000440000ee40ee404eeee40004004004e4004e40eeeeee4000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000eeee00000000000000000000000000000000000000000008800880
+0000000000000000000000000000000000000000eeeeeeee0000000000000000077777700eeeeee000000000e000000e0eeeeee4000000000000000087728882
+000000000000000000000000000000000000000000eeee447eeee7eeeeeeeeee0eeeeee4eeeeeeeee000000eeeeeeeee0eeeeee4000000000000000088888882
+0000000000000000000000000000000000000000000ee400e7eeee7e4eeeeee40ee40ee4eeeeeeeeee0000eee00ee00e0eeeeee4000000000000000088888882
+000000000000000000000000000000000000000000eeee00ee744ee704eeee400ee40ee4eeeeeeee4ee00ee4e00ee00e0eeeeee4000000000000000008888820
+00000000000000000000000000000000000000000eeeeee044400444004ee4000ee40ee44eeeeee404e40e40eee44eee0eeeeee4000000000000000000888200
+0000000000000000000000000000000000000000eeeeeeee00000000000440000ee40ee404eeee40004004004e4004e40eeeeee4000000000000000000022000
 0000000000000000000000000000000000000000444444440000000000000000044004400ee44ee0000000000400004004444444000000000000000000000000
 00eeee0000999e0e0e9999000eeeeee00e9ee9e000999900e0999900009999000099990000000000000000000000000000000000000000000000000000000000
 0eeeeee0097aaae009eaaa9eeeeeeeee0eeeeee0097aaa900eeeeee0097aaa90097aaa9000000000000000000000000000000000000000000000000000000000
@@ -2300,8 +2409,8 @@ __sfx__
 010500000d200152001c200242002c20033200382003220025200000000d20000200042001520000000272003220038200000002920021200092000e200162002620029200362003b20038200262000b20000000
 000300003a673346732e67329673246731f6731d6731d6731b6731a67318673176731567313673126730d6730c673086730667304673026730067300673006730066500655006550065500655006550065500655
 000a00000b140061500e140061500b14006100001000b100001000010000100001000010000100001000010000100001000010000100001000010000100001000010000100001000010000100001000010000100
-001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000300000a1501e1502d1503a1503615023150151500e1500a1500815006150041500415003150020500215001150001500010000100001000010000100011000110001100001000010000100001000010000100
+000300000a1701e1702d1703a1703617023170151700e1700a170081700617004170041700317002170061700b170111701b1702f170371701c1701117014170171701c170251703b1703f17037170261700a170
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000

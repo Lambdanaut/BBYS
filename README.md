@@ -35,6 +35,7 @@ TODO
 
 * Fix rock collisions. We shouldn't ever get stuck on a rock. 
 * Fix it so with the crown, when destroying rocks, you don't always pick the food up right away.
+* WHY DOES bby.collide CALL ITSELF AGAIN AT THE END WTF
 
 
 
@@ -42,3 +43,6 @@ Refactoring Notes
 -----------------
 
 * Can replace all tile_to_pixel_pos calls with multiplication by 8.
+* Remove unused player.movement_enabled if it is unused
+* Replace array length using # with `add` function
+* Delete unused sprites(palm tree)
