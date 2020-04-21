@@ -13,12 +13,8 @@ Notes
 -----
 
 * Item modifiers
-  * Wig: Makes all enemies prioritize this bbys_pos
-  * Mask: Deprioritizes completely
-  * Sunglasses: Slows all bats
-  * Bandana: Fires projectiles up down left right 
-
   * Alien: Randomly scrambles position of all bbys and enemies when picked up
+  * Bandana: Damages monsters on contact
   * Box: Stops wandering
   * Bra: Stops life slowly dropping from hunger
   * Cap: It's just a hat
@@ -28,15 +24,21 @@ Notes
   * Eyepatch: One bat dies on screen when its picked up
   * Flower in hair: Randomly generates food when picked up
   * Karate headband: Destroys rocks on collision
+  * Mask: Deprioritizes from enemy target
   * Pants: Makes player faster while colliding
   * Thick coat(Kenny): Makes invulnerable
-
-
-
-
+  * Wig: Makes all enemies prioritize this bbys_pos
+  * Sunglasses: Slows all bats
 
 TODO
 ----
 
 * Fix rock collisions. We shouldn't ever get stuck on a rock. 
 * Fix it so with the crown, when destroying rocks, you don't always pick the food up right away.
+
+
+
+Refactoring Notes
+-----------------
+
+* Can replace all tile_to_pixel_pos calls with multiplication by 8.

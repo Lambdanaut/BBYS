@@ -3,16 +3,21 @@ version 18
 __lua__
 
 -- DEBUG CONTROLS
-DEBUG = true
+DEBUG = false
 
 -- Constants
 MAP_SIZE_X = 16
 MAP_SIZE_Y = 16
 
+-- Palettes that bbys can be
 PALETTE_ORANGE = 0
 PALETTE_GREEN = 1
 PALETTE_BLUE = 2
 PALETTE_GREY = 3
+
+-- Other Palettes
+PALETTE_PINK = 4
+PALETTE_BLACK = 5
 
 PALETTES = {PALETTE_ORANGE, PALETTE_GREEN, PALETTE_BLUE, PALETTE_GREY}
 PALETTES_LENGTH = 0
@@ -139,9 +144,11 @@ function _draw()
     level_manager:draw()
 
     -- Draw the rocks
+    set_palette(level_manager.map_palette)
     for _, rock in pairs(rocks.rocks) do 
       rock:draw() 
     end
+    reset_palette()
 
     -- Draw the foods
     for _, food in pairs(foods.foods) do 
@@ -166,7 +173,7 @@ function _draw()
 
     -- Draw stage specific ui updates
     level_manager:draw_stage_ui()
-    
+
   end
 end
 
@@ -272,13 +279,13 @@ end
 function make_level_manager()
   level_manager = {}
 
-  level_manager.level = 1
+  level_manager.level = 5
   level_manager.stage = 1  -- The progression of the current level
   level_manager.stage_duration = 5
-  level_manager.final_level = 3
+  level_manager.final_level = 6
 
   -- Number of stages for each level, listed sequentially
-  level_manager.stage_count = {21, 26}
+  level_manager.stage_count = {23, 26, 25, 5, 5}
   level_manager.map_bounds = {x=1*8, y=1*8, w=15*8, h=15*8}  -- Rect of map bounds
 
   level_manager.enemy_spawn_tl = {0, 0}
@@ -290,9 +297,19 @@ function make_level_manager()
   level_manager.enemy_spawn_bl = {0, 17}
   level_manager.enemy_spawn_l = {0, 8}
 
+  level_manager.message_pos = tile_to_pixel_pos({8, 2})  -- position on screen to display dialogue messages at
+
   level_manager.time_since_last_stage = 0
 
+  level_manager.map_palette = nil
+
+  -- Components
+
+  -- do_for that can be edited from anywhere. Hotswap the callback_fn and do start() to run it
+  level_manager.ui_do_for = make_do_for(level_manager, 2.5, nil)  
+
   level_manager.init_level = function(self)
+    -- Play music on first 4 levels
     music(MUSIC_LVL1, 0, MUSIC_BITMASK)
 
     make_player()
@@ -306,17 +323,17 @@ function make_level_manager()
 
     if DEBUG then
         make_bby({9, 7})
-        make_bby({9, 8})
-        make_bby({9, 9})
-        make_bby({9, 10})
-        make_bby({9, 11})
+        -- make_bby({9, 8})
+        -- make_bby({9, 9})
+        -- make_bby({9, 10})
+        -- make_bby({9, 11})
 
         make_rock({3, 3})
         make_rock({3, 5})
         make_rock({3, 7})
         make_rock({3, 9})
 
-        make_enemy({20, 20})
+        make_enemy({16, 16})
 
         items.create_all_items_randomly()
 
@@ -332,6 +349,7 @@ function make_level_manager()
 
       UNLOCKED_PALETTES = {PALETTE_ORANGE}
     elseif self.level == 2 then
+      self.map_palette = PALETTE_GREEN
       local rock_pos = {
         {3, 4}, {5, 4}, {7, 4}, {9, 4}, {11, 4}, {13, 4},
         {4, 3}, {4, 5}, {4, 7}, {4, 9}, {4, 11}, {4, 13},
@@ -340,6 +358,18 @@ function make_level_manager()
       make_rocks(rock_pos)
 
       UNLOCKED_PALETTES = {PALETTE_ORANGE, PALETTE_GREEN}
+    elseif self.level == 3 then
+      self.map_palette = PALETTE_BLUE
+      local rock_pos = {
+        {3, 4}, {5, 4}, {7, 4}, {9, 4}, {11, 4}, {13, 4},
+        {4, 3}, {4, 5}, {4, 7}, {4, 9}, {4, 11}, {4, 13},
+        {13, 12}, {13, 10}, {13, 8}, {13, 6}, {13, 4}
+      }
+      make_rocks(rock_pos)
+    elseif self.level == 4 then
+      self.map_palette = PALETTE_GREY
+    elseif self.level == 5 then
+      self.map_palette = PALETTE_ORANGE
     end
 
   end
@@ -371,55 +401,72 @@ function make_level_manager()
 
       if self.stage == 1 then
         make_bby({8, 6})
-
-        -- Skip a couple stages (saferoom concept)
-      elseif self.stage == 4 then
+        -- Skip a few stages (saferoom concept)
+      elseif self.stage == 6 then
         -- First enemy then a pause
         make_enemy(self.enemy_spawn_b)
       elseif self.stage == 7 then
         -- Two more enemies from the same location
         make_enemy(self.enemy_spawn_b)
         make_enemy(self.enemy_spawn_b)
-      elseif self.stage == 10 then
+      elseif self.stage == 12 then
         -- Two more enemies from the same location
         make_enemy(self.enemy_spawn_l)
         make_enemy(self.enemy_spawn_r)
-      elseif self.stage == 13 then
+      elseif self.stage == 15 then
         -- Two more enemies from the same location
         make_enemy(self.enemy_spawn_r)
-      elseif self.stage == 16 then
+      elseif self.stage == 18 then
         -- Two more enemies from the same location
         make_enemy(self.enemy_spawn_t)
         make_enemy(self.enemy_spawn_b)
         make_enemy(self.enemy_spawn_l)
         make_enemy(self.enemy_spawn_r)
-
       end
-
     elseif self.level == 2 then
       if self.stage == 1 then
         make_bby({8, 6}, PALETTE_ORANGE)
       elseif self.stage == 4 then
         make_bby({8, 7}, PALETTE_GREEN)
-      elseif self.stage == 5 then
+      elseif self.stage == 6 then
         make_enemy(self.enemy_spawn_b, PALETTE_GREEN)
-      elseif self.stage == 9 then
+      elseif self.stage == 10 then
         -- Enemies go only after new bby
         make_enemy(self.enemy_spawn_l, PALETTE_GREEN)
-      elseif self.stage == 14 then
+      elseif self.stage == 15 then
         -- Two more enemies from the same location go after other bby
         make_enemy(self.enemy_spawn_t, PALETTE_ORANGE)
         make_enemy(self.enemy_spawn_r, PALETTE_ORANGE)
-      elseif self.stage == 18 then
-        make_enemy(self.enemy_spawn_t, PALETTE_GREEN)
       elseif self.stage == 19 then
-        make_enemy(self.enemy_spawn_b, PALETTE_GREEN)
+        make_enemy(self.enemy_spawn_t, PALETTE_GREEN)
       elseif self.stage == 20 then
-        make_enemy(self.enemy_spawn_r, PALETTE_ORANGE)
+        make_enemy(self.enemy_spawn_b, PALETTE_GREEN)
       elseif self.stage == 21 then
+        make_enemy(self.enemy_spawn_r, PALETTE_ORANGE)
+      elseif self.stage == 22 then
         make_enemy(self.enemy_spawn_l, PALETTE_GREEN)
       end
-
+    elseif self.level == 3 then
+      if self.stage == 1 then
+        make_bby({8, 6}, PALETTE_ORANGE)
+        make_bby({8, 7}, PALETTE_GREEN)
+      elseif self.stage == 3 then
+        make_bby({8, 7}, PALETTE_BLUE)
+      elseif self.stage == 5 then
+        make_enemy(self.enemy_spawn_bl, PALETTE_BLUE)
+      elseif self.stage == 6 then
+        make_enemy(self.enemy_spawn_br, PALETTE_BLUE)
+      elseif self.stage == 11 then
+        make_enemy(self.enemy_spawn_l, PALETTE_GREEN)
+        make_enemy(self.enemy_spawn_r, PALETTE_ORANGE)
+      elseif self.stage == 15 then
+        make_enemy(self.enemy_spawn_tl, PALETTE_BLUE)
+        make_enemy(self.enemy_spawn_bl, PALETTE_GREEN)
+      elseif self.stage == 21 then
+        make_enemy(self.enemy_spawn_tl, PALETTE_BLUE)
+        make_enemy(self.enemy_spawn_tr, PALETTE_GREEN)
+        make_enemy(self.enemy_spawn_bl, PALETTE_ORANGE)
+      end
     elseif self.level == self.final_level then
       bby1=make_bby({2, 14}, PALETTE_ORANGE)
       bby1.wanderer.active = false
@@ -434,59 +481,105 @@ function make_level_manager()
 
   level_manager.draw_stage_ui = function(self)
     -- Called each frame for stage_specific ui updates
+
+    -- Update our ui do_for that let's us spawn messages
+    self.ui_do_for:update()
+
+    if DEBUG then return end
+
     if self.level == 1 then
       if self.stage == 1 then
         self:draw_message(
-          tile_to_pixel_pos({8, 2}),
-          "HI THERE 🅾️O🅾️  ", 
-          PALETTE_GREY)
+          self.message_pos,
+          "HI THERE 🅾️O🅾️  ")
       elseif self.stage == 2 then
         self:draw_message(
-          tile_to_pixel_pos({8, 2}),
-          "THIS IS UR BBY! 🅾️U🅾️  ", 
-          PALETTE_GREY)
+          self.message_pos,
+          "THIS IS UR BBY! 🅾️U🅾️  ")
       elseif self.stage == 3 then
         self:draw_message(
-          tile_to_pixel_pos({8, 2}),
-          "SHE HUNGR. HIT ROCK 4 FOOD!!", 
-          PALETTE_GREY)
+          self.message_pos,
+          "MOVE HER WITH A PUSH ♥ ")
       elseif self.stage == 4 then
         self:draw_message(
-          tile_to_pixel_pos({8, 2}),
-          "BUT MOST IMPORTANT... 🅾️_🅾️  ", 
-          PALETTE_GREY)
+          self.message_pos,
+          "SHE HUNGR. HIT ROCK 4 FOOD!!")
       elseif self.stage == 5 then
         self:draw_message(
-          tile_to_pixel_pos({8, 2}),
-          "SAVE HER FROM BEIN FOOD ❎~❎  ", 
-          PALETTE_GREY)
+          self.message_pos,
+          "BUT MOST IMPORTANT... 🅾️_🅾️  ")
+      elseif self.stage == 6 then
+        self:draw_message(
+          self.message_pos,
+          "SAVE HER FROM BEIN FOOD ❎~❎  ")
       end
     elseif self.level == 2 then
       if self.stage == 1 then
         self:draw_message(
-          tile_to_pixel_pos({8, 2}),
-          "HEWWO! ^o^ SO SRY 2 SEE...", 
-          PALETTE_GREY)
+          self.message_pos,
+          "HEWWO! ^o^ SO SRY 2 SEE...")
       elseif self.stage == 2 then
         self:draw_message(
-          tile_to_pixel_pos({8, 2}),
-          "  ...  ", 
-          PALETTE_GREY)
+          self.message_pos,
+          "  ...  ")
       elseif self.stage == 3 then
         self:draw_message(
-          tile_to_pixel_pos({8, 2}),
-          "WUT ❎∧🅾️ UR BBY ALIVE?   ", 
-          PALETTE_GREY)
+          self.message_pos,
+          "WUT ❎∧🅾️ UR BBY ALIVE?   ")
       elseif self.stage == 4 then
         self:draw_message(
-          tile_to_pixel_pos({8, 2}),
-          "WELL.. I GIVE U MORE BBY", 
-          PALETTE_GREY)
+          self.message_pos,
+          "WELL.. I GIVE U MORE BBY")
       elseif self.stage == 5 then
         self:draw_message(
-          tile_to_pixel_pos({8, 2}),
-          "GOOD LUCK. >->", 
-          PALETTE_GREY)
+          self.message_pos,
+          "GOOD LUCK. >->")
+      end
+    elseif self.level == 3 then
+      if self.stage == 1 then
+        self:draw_message(
+          self.message_pos,
+          "XCUSE ME 🅾️_🅾️  ")
+      elseif self.stage == 2 then
+        self:draw_message(
+          self.message_pos,
+          "...I MEAN... ♪_♪  ")
+      elseif self.stage == 3 then
+        self:draw_message(
+          self.message_pos,
+          "WELL.. TAKE THIS ONE THEN")
+      end
+    elseif self.level == 4 then
+      if self.stage == 1 then
+        self:draw_message(
+          self.message_pos,
+          "DIALOGUE")
+      elseif self.stage == 2 then
+        self:draw_message(
+          self.message_pos,
+          "MORE DIALOGUE")
+      end
+    elseif self.level == 5 then
+      if self.stage == 1 then
+        self:draw_message(
+          self.message_pos,
+          "HEY BUDDI... I THNK MAYBE...")
+      elseif self.stage == 2 then
+        self:draw_message(
+          self.message_pos,
+          "WE GET OFF ON WRONG FOOT.")
+        music(-1, 600)
+      elseif self.stage == 3 then
+        self:draw_message(
+          self.message_pos,
+          "I JUST WANNA SAY")
+      elseif self.stage == 4 then
+        self:draw_message(
+          self.message_pos,
+          ".welcom to hell mothr fuckr.", 
+          PALETTE_BLACK)
+        self.map_palette = PALETTE_BLACK
+        -- Play last level music here
       end
     elseif self.level == self.final_level then
       level_manager:draw_message(
@@ -503,8 +596,7 @@ function make_level_manager()
         PALETTE_BLUE)
       level_manager:draw_message(
         tile_to_pixel_pos({8, 10}),
-        " - LAMBDANAUT",
-        PALETTE_GREY)
+        " - LAMBDANAUT")
     end
   end
 
@@ -542,7 +634,9 @@ function make_level_manager()
   end
 
   level_manager.draw = function(self)
+    set_palette(self.map_palette)
     self:draw_map() 
+    reset_palette()
   end
 
   level_manager.draw_map = function(self)
@@ -608,8 +702,9 @@ function make_level_manager()
     local padding = 2
     local x_pos = center_pos[1] + 5 - message_length * 4 / 2 
     local y_pos = center_pos[2]
-    local bg_color = 9
+    local bg_color = 6
 
+    -- PALETTE_GREY IS DEFAULT 
     if (palette != nil) then
       if palette == PALETTE_ORANGE then
         bg_color = 9
@@ -617,8 +712,10 @@ function make_level_manager()
         bg_color = 3  -- dark green
       elseif palette == PALETTE_BLUE then
         bg_color = 12
-      elseif palette == PALETTE_GREY then
-        bg_color = 6
+      elseif palette == PALETTE_PINK then
+        bg_color = 14
+      elseif palette == PALETTE_BLACK then
+        bg_color = 8  -- Palette black has red background for text boxes
       end
     end
 
@@ -675,7 +772,6 @@ function make_level_manager()
   level_manager:init_stage()
 
   return level_manager
-
 
 end
 
@@ -923,8 +1019,17 @@ function make_item(sprite, pos)
     -- Adds an items modifier, affecting the game
     local s = self.sprite
 
+    local draw_message = function(msg)
+      -- Helper function to display a message for the item picked up
+      level_manager.ui_do_for.callback_fn = function(l)
+        l:draw_message(l.message_pos, msg, PALETTE_PINK)
+      end 
+      level_manager.ui_do_for:start()
+    end
+
     if s == 69 then
       -- Meg cap
+      draw_message("IT'S A USELESS PINK HAT")
     elseif s == 70 then
       -- Flower
       -- Create food in random positions
@@ -932,6 +1037,7 @@ function make_item(sprite, pos)
         local pos = tile_to_pixel_pos(random_tile_on_map())
         make_food(pos)
       end
+      draw_message("FOOD FOR THOUGHT")
     elseif s == 71 then
       -- Eye Patch
       for _, enemy in pairs(enemies.enemies) do
@@ -940,44 +1046,53 @@ function make_item(sprite, pos)
           break
         end
       end
+      draw_message("ASSASSINATED A MONSTER")
     elseif s == 72 then
       -- Wig
       for _, enemy in pairs(enemies.enemies) do
         enemy.follower.target = nil
       end
-
+      draw_message("MONSTERS LOVE HER HAIR")
     elseif s == 73 then
       -- Crown
       for _ = 0, 10 do
         local pos = random_tile_on_map()
         make_rock(pos)
       end
-
+      draw_message("THERE'S A ROCKY ROAD AHEAD")
     elseif s == 74 then
       -- Clown nose
      sfx(SFX_HEAL_ALL_BBYS)
      for _, bby in pairs(bbys) do
        if bby.active then bby.health.health = 1.0 end
      end
+      draw_message("LAUGHTER HEALS")
     elseif s == 75 then
       -- Karate headband 
       bby.destroy_rocks_on_collision = true
+      draw_message("BREAK ROCKS WITH KARATE")
     elseif s == 76 then
       -- Bra
       bby.health.auto_dps_active = false
+      draw_message("CHUBBY BBY NO HUNGRY")
     elseif s == 85 then
       -- Dress
       bby.heal_bbys_on_collision = true
+      draw_message("TOUCH THE DRESS TO HEAL")
     elseif s == 86 then
       -- Sunglasses
+      draw_message("MONSTERS SLOWED BY COOL BBY")
     elseif s == 87 then
       -- Bandit bandana
+      draw_message("BAD BOI HURTS MONSTERS")
     elseif s == 88 then
       -- Pants
-      -- Code in player.collide. Speed up player on collision
+      -- Code is in player.collide. Speed up player on collision
+      draw_message("GOTTA GO FAST")
     elseif s == 89 then
       -- Kenny hoody
       bby.health.direct_damage_active = false
+      draw_message("BBY GOTTA GO FAST")
     elseif s == 90 then
       -- Alien antlers
       -- Randomize locations of bbys and enemies
@@ -991,11 +1106,17 @@ function make_item(sprite, pos)
           char.pos = pos
         end
       end
+      draw_message("BBBBZZZZZZZZT")
     elseif s == 91 then
       -- Mask
+      for _, enemy in pairs(enemies.enemies) do
+        enemy.follower.target = nil
+      end
+      draw_message("MONSTERS CANT SEE THROUGH MASK")
     elseif s == 92 then
       -- Box
       bby.wanderer.active = false
+      draw_message("STOPS BBY WANDERING")
     end
 
   end
@@ -1041,6 +1162,9 @@ function make_item(sprite, pos)
       -- Alien antlers
     elseif s == 91 then
       -- Mask
+      for _, enemy in pairs(enemies.enemies) do
+        enemy.follower.target = nil
+      end
     elseif s == 92 then
       -- Box
       bby.wanderer.active = true
@@ -1181,6 +1305,8 @@ function make_bby(pos, palette)
   bby.v = {0, 0}
   bby.sprite = 40
   bby.active = true
+
+  bby.bandana_damage_dealt = 0.2
 
   bby.push_index = 0
   bby.is_pushed_by_bby = false
@@ -1323,7 +1449,14 @@ function make_bby(pos, palette)
     -- Do enemy collision
     for _, enemy in pairs(enemies.enemies) do
       if enemy.active and self.collider:is_colliding(enemy) then
+        -- Get hurt
         self.health:damage(enemy.damage_dealt)
+
+        -- Do damage to enemy if we're wearing the bandana
+        if self.current_item ~= nil and self.current_item.sprite == 87 then
+          enemy.health:damage(self.bandana_damage_dealt)
+        end
+
         local collision_direction = self.collider:get_collision_direction(enemy)
         if collision_direction == TOP_COLLISION then
           -- Colliding top
@@ -1426,7 +1559,7 @@ function make_enemy(pos, palette)
   local enemy = {}
 
   -- Configurations
-  enemy.max_speed = 0.1
+  enemy.max_speed = 0.2
 
   enemy.name = " 🐱  "
   enemy.pos = tile_to_pixel_pos(pos or {0, 0})
@@ -1434,6 +1567,9 @@ function make_enemy(pos, palette)
   enemy.sprite = 128
   enemy.active = true
   enemy.damage_dealt = 0.1
+
+  enemy.default_speed = enemy.max_speed
+  enemy.sunglasses_speed_modifier = 0.12
 
   -- Components
   enemy.animator = make_animator(
@@ -1458,16 +1594,18 @@ function make_enemy(pos, palette)
     enemy,
     1.0, -- Max health
     SFX_ENEMY_DAMAGED, -- Damage sfx to play
-    nil, -- Cooldown duration
+    0.1, -- Cooldown duration
     0.05, -- Auto damage taken per second
     death_callback_fn  -- Callback function to call on death
   )
   find_target_fn = function(enemy)
     -- Find a target with the same color palette as us
-    local new_target = bbys[1]
+    local new_target = nil
     for _, bby in pairs(bbys) do
       if bby.active then
-        if bby.animator.palette == enemy.animator.palette then
+        local bby_is_wearing_mask = bby.current_item ~= nil and bby.current_item.sprite == 91
+        if bby.animator.palette == enemy.animator.palette and not bby_is_wearing_mask then
+          -- Prioritize same color, deprioritize mask.
           new_target = bby
         end
         if bby.current_item ~= nil and bby.current_item.sprite == 72 then
@@ -1477,17 +1615,24 @@ function make_enemy(pos, palette)
         end
       end
     end
+
+    -- Set the target to the player if one wasn't found
+    if new_target == nil then
+      new_target = player
+    end
+
     return new_target
   end
   enemy.follower = make_follower(
     enemy,
     nil,
-    0.2,
+    nil,
     find_target_fn
   ) 
 
   enemy.update = function(self)
     if self.active then
+      self:update_for_sunglasses()
       self.collider:update()
       self.follower:update()
       self.health:update()
@@ -1513,6 +1658,17 @@ function make_enemy(pos, palette)
     end
   end
 
+  enemy.update_for_sunglasses = function(self)
+    -- Slow us down if a bby is wearing sunglasses
+    self.max_speed = self.default_speed
+    for _, bby in pairs(bbys) do
+      if bby.active and bby.current_item ~= nil and bby.current_item.sprite == 86 then
+        self.max_speed = self.sunglasses_speed_modifier
+        break
+      end
+    end
+  end
+
   enemies.enemies[#enemies.enemies + 1] = enemy
 
   return enemy
@@ -1521,14 +1677,13 @@ end
 
 -- Follow code
 function make_follower(parent, target, follow_speed, find_target_fn)
-  follower = {}
+  local follower = {}
   follower.parent = parent
 
   follower.target = target  -- target must have pos
-  follower.follow_speed = follow_speed
+  follower.follow_speed = follow_speed  -- Uses parent's max_speed attribute if this is nil
   follower.is_following = true
   follower.find_target_fn = find_target_fn  -- Optional function to find a target. Also called if target becomes inactive
-  follower.override_find_target_fn = nil  -- If set, is used instead of find_target_fn. Useful for changing priorities.
 
   -- Find a target if we have a function but no starting target
   if follower.find_target_fn ~= nil and follower.target == nil then
@@ -1538,18 +1693,14 @@ function make_follower(parent, target, follow_speed, find_target_fn)
   follower.update = function(self)
     if self.find_target_fn ~= nil and (self.target == nil or (self.target ~= nil and not self.target.active)) then
       -- If our target is inactive or nil, find a new one
-      if self.override_find_target_fn ~= nil then
-        -- Use the override find target function if it is set
-        self.target = self.override_find_target_fn(self.parent)
-      else
-        self.target = self.find_target_fn(self.parent)
-      end
+      self.target = self.find_target_fn(self.parent)
     end
 
     if self.target ~= nil then
+      local speed = self.follow_speed or self.parent.max_speed
       local difference = v_subtraction(self.target.pos, self.parent.pos)
       local normalized = v_normalized(difference)
-      local v = v_scalar_multiplication(normalized, self.follow_speed)
+      local v = v_scalar_multiplication(normalized, speed)
 
       self.parent.v = v
     elseif self.find_target_fn ~= nil then
@@ -1564,7 +1715,7 @@ end
 
 -- Wander code
 function make_wanderer(parent, wander_speed, frequency, duration, random_offset)
-  wanderer = {}
+  local wanderer = {}
   wanderer.parent = parent
 
   wanderer.wander_speed = wander_speed
@@ -1641,7 +1792,7 @@ end
 -- Animator code
 
 function make_animator(parent, fps, sprite_offset, palette, animation_flag)
-  animator = {}
+  local animator = {}
   animator.parent = parent
   animator.fps = fps
   animator.sprite_offset = sprite_offset
@@ -1688,7 +1839,7 @@ end
 
 -- Collider
 function make_collider(parent, w, h, offset)
-  collider = {}
+  local collider = {}
   collider.parent = parent
 
   collider.offset = offset or 1
@@ -1755,7 +1906,7 @@ function make_health(parent,
   max_health, damage_sfx, cooldown_duration, auto_damage_per_second, 
   death_callback_fn, low_health_amount, low_health_sprite)
 
-  health = {}
+  local health = {}
   health.parent = parent
 
   health.max_health = max_health
@@ -1822,19 +1973,39 @@ function make_health(parent,
 end
 
 
+function make_do_for(parent, duration, callback_fn)
+  -- Calls a callback function n amount of times per second(default is every frame) until duration expires
+  -- Call start() to start the timer
+  local do_for = {}
+
+  do_for.parent = parent
+  do_for.duration = duration
+  do_for.callback_fn = callback_fn
+
+  do_for.time_left = 0
+
+  do_for.update = function(self)
+    if self.time_left > 0 then
+      self.time_left -= DELTA_TIME
+      if self.callback_fn ~= nil then
+        self.callback_fn(parent)
+      end
+    end
+  end
+
+  do_for.start = function(self)
+    self.time_left = self.duration
+  end
+
+  return do_for
+end
+
 
 
 -- Linear Interpolation functions
-
 function lerp(a, b, t)
   -- Does a linear interpolation between two points
   return a + (b - a) * t
-end
-
-function quad(a, b, t)
-  -- Does a quadratic interpolation between two points
-  local x = lerp(a, b, t^2)
-  return x
 end
 
 function bounce(a, b, t)
@@ -1859,24 +2030,33 @@ function set_palette(palette)
   elseif palette == PALETTE_GREEN then
     pal(9,  3)
     pal(10, 11)
+    pal(15, 11)
   elseif palette == PALETTE_BLUE then
     pal(9,  1)
     pal(10, 12)
-    pal(4, 0)
+    pal(15, 6)  
+    pal(4, 0) -- Additionally change dark brown for blue palette
   elseif palette == PALETTE_GREY then
     pal(9,  5)
     pal(10, 6)
+    pal(15, 6)
+  elseif palette == PALETTE_BLACK then
+    pal(9,  8)
+    pal(10, 6)
+    pal(15, 2)
+    pal(7,  0) -- Additionally change white to black for black palette
   end
 end
 
 function reset_palette()
   pal(9,  9)
   pal(10, 10)
+  pal(15, 15)
   pal(4, 4)
+  pal(7, 7)
 end
 
 -- Vector functions
-
 function v_add(v1, v2)
   return {v1[1] + v2[1], v1[2] + v2[2]}
 end
@@ -1986,10 +2166,10 @@ ee9aa9eeee9aa9eeee9aaeeeee9aa9eeee9aa9eeee9ee9eeee9aa9ee9eeaaee9ee9aa9ee00000000
 097aaa90097aaa90097aaa90097aaa900eeeeee00e7aaae0eeeeeeeee97aaa9e000000000000000000004ffff940000000097900000000000000000000000000
 974aa4a97eeee7ee974aa4a9974aa4a9ee4aa4ee974aa4a9e74ee4aee74aa4ae000000000000000000004f999994000000979990000000000000000000000000
 9a2aa2a9e7eeee7e9a2aa2a99a2aa2a9ee2aa2ee9a2aa2a9ea2ee2aeea2aa2ae000000000000000000049ffff9f9400000979990000000000000000000000000
-ee9aa9eeee7aaee7eeeeeeeeee9aa9eeee9aa9eeee9aa9eeeeeaaeeeee9aa9ee000000000000000000049ffffff9400009999998000000000000000000000000
-09a44a9009a44a900eeeeee009a44a900eeeeee009a44a900ea44ae0e9a44a9e0000000000000000000499f99999400009999998000000000000000000000000
-00eeee000099990000eeee0000eeee0000eeee000099990000999900e099990e0000000000000000000449999994400008999980000000000000000000000000
-0eaeeae009900990099ee9900ee00ee00ee00ee00990099009900990eeeeeeee0000000000000000000044444444000000888800000000000000000000000000
+ee9aa9eeee7aaee7eeeeeeeeee9aa9eeee9aa9eeee9aa9eeeeeaaeeeee9aa9ee000000000000000000049ffffff9400009999995000000000000000000000000
+09a44a9009a44a900eeeeee009a44a900eeeeee009a44a900ea44ae0e9a44a9e0000000000000000000499f99999400009999995000000000000000000000000
+00eeee000099990000eeee0000eeee0000eeee000099990000999900e099990e0000000000000000000449999994400005999950000000000000000000000000
+0eaeeae009900990099ee9900ee00ee00ee00ee00990099009900990eeeeeeee0000000000000000000044444444000000555500000000000000000000000000
 0e8eeee00e8eeee00e8eeee000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 888888808888888088888880000000000000000000000000000eee00ee00000000eeeee0000ee00000000000e000000000e4ee00000000000000000000000000
 099a9a90099a9a90099a9a90000000000000000000000000000eee0044e000000eeeeeeee0eeee0e000ee0000e000000eee4eee4000000000000000000000000
@@ -2015,13 +2195,13 @@ ee9aa9eeee9aa9eeee9aaeeeee9aa9eeee9aa9eeee9ee9eeee9aa9ee9eeaaee9ee9aa9ee00000000
 099999000999990009999900099999000999990009999900099999000ee99ee00999990000000000000000000000000000000000000000000000000000000000
 00000990000009900000099000000990000009900000099000000990000009900000099000000000000000000000000000000000000000000000000000000000
 0099990000999900009999000099990000eeee00e099990ee099990eeeeeeeee0000000000000000000000000000000000000000000000000000000000000000
-097aaa90097aaa90097aaa90097aaa900eeeeee00e7aaae0eeeeeeeee97aaa9e0000000000000000000000000000000000091100000000000000000000000000
-974aa4a97eeee7ee974aa4a9974aa4a9ee4aa4ee974aa4a9e74ee4aee74aa4ae0000000000000000000000000000000000911990000000000000000000000000
-9a2aa2a9e7eeee7e9a2aa2a99a2aa2a9ee2aa2ee9a2aa2a9ea2ee2aeea2aa2ae0000000000000000000000000000000000911990000000000000000000000000
-ee9aa9eeee7aaee7eeeeeeeeee9aa9eeee9aa9eeee9aa9eeeeeaaeeeee9aa9ee0000000000000000000000000000000009119198000000000000000000000000
-09a44a9009a44a900eeeeee009a44a900eeeeee009a44a900ea44ae0e9a44a9e0000000000000000000000000000000009199918000000000000000000000000
-0eeeee000999990009eeee000eeeee000eeeee000999990009999900e999990e0000000000000000000000000000000001999980000000000000000000000000
-000eeae000000990000ee99000000ee000000ee00000099000000990eeeeeeee0000000000000000000000000000000000888800000000000000000000000000
+097aaa90097aaa90097aaa90097aaa900eeeeee00e7aaae0eeeeeeeee97aaa9e0000000000000000000000000000000000095500000000000000000000000000
+974aa4a97eeee7ee974aa4a9974aa4a9ee4aa4ee974aa4a9e74ee4aee74aa4ae0000000000000000000000000000000000955990000000000000000000000000
+9a2aa2a9e7eeee7e9a2aa2a99a2aa2a9ee2aa2ee9a2aa2a9ea2ee2aeea2aa2ae0000000000000000000000000000000000955990000000000000000000000000
+ee9aa9eeee7aaee7eeeeeeeeee9aa9eeee9aa9eeee9aa9eeeeeaaeeeee9aa9ee0000000000000000000000000000000009559595000000000000000000000000
+09a44a9009a44a900eeeeee009a44a900eeeeee009a44a900ea44ae0e9a44a9e0000000000000000000000000000000009599955000000000000000000000000
+0eeeee000999990009eeee000eeeee000eeeee000999990009999900e999990e0000000000000000000000000000000005999950000000000000000000000000
+000eeae000000990000ee99000000ee000000ee00000099000000990eeeeeeee0000000000000000000000000000000000555500000000000000000000000000
 00000000900000090000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 a990099a9a0000a9a990099a00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 90199109099009909019910900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
