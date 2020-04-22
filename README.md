@@ -36,6 +36,7 @@ TODO
 * Fix rock collisions. We shouldn't ever get stuck on a rock. 
 * Fix it so with the crown, when destroying rocks, you don't always pick the food up right away.
 * WHY DOES bby.collide CALL ITSELF AGAIN AT THE END WTF
+* Make the bandana fire projectiles, not damage enemies on contact
 
 
 

@@ -284,13 +284,13 @@ end
 function make_level_manager()
   level_manager = {}
 
-  level_manager.level = 4
+  level_manager.level = 1
   level_manager.stage = 1  -- The progression of the current level
   level_manager.stage_duration = 5
   level_manager.final_level = 5
 
   -- Number of stages for each level, listed sequentially
-  level_manager.stage_count = {2, 27, 40, 28}
+  level_manager.stage_count = {24, 27, 40, 28}
   level_manager.map_bounds = {x=1*8, y=1*8, w=15*8, h=15*8}  -- Rect of map bounds
 
   level_manager.enemy_spawn_tl = {0, 0}
@@ -574,12 +574,15 @@ function make_level_manager()
         sfx(SFX_TALK)
         music(-1, 3000)
       elseif self.stage == 3 then
-        self:draw_ui_msg("MAYB WE CAN TRY AGAIN")
+        self:draw_ui_msg("IF ONLY I HAD A HEART ♥ ")
         sfx(SFX_TALK)
       elseif self.stage == 4 then
-        self:draw_ui_msg("I JUST WANTED 2 SAY")
+        self:draw_ui_msg("MAYB WE COULD TRY AGAIN")
         sfx(SFX_TALK)
       elseif self.stage == 5 then
+        self:draw_ui_msg("I JUST WANTED 2 SAY")
+        sfx(SFX_TALK)
+      elseif self.stage == 6 then
         self:draw_ui_msg(".welcom to hell mothr fuckr.", 
           PALETTE_BLACK)
         sfx(SFX_CRASH)
@@ -923,28 +926,6 @@ function make_player(pos)
 
     if not touching_bby_with_pants then
       self.max_speed = self.default_speed
-    end
-
-    -- Do enemy collision
-    for _, enemy in pairs(enemies.enemies) do
-      if enemy.active and self.collider:is_colliding(enemy) then
-        -- Potentially let player damage enemies!
-        -- enemy.health:damage(self.damage_to_enemies)
-        local collision_direction = self.collider:get_collision_direction(enemy)
-        if collision_direction == TOP_COLLISION then
-          -- Colliding top
-          self.pos[2] = enemy.pos[2] + self.collider.rect.h
-        elseif collision_direction == BOTTOM_COLLISION then
-          -- Colliding bottom
-          self.pos[2] = enemy.pos[2] - self.collider.rect.h
-        elseif collision_direction == LEFT_COLLISION then
-          -- Colliding left
-          self.pos[1] = enemy.pos[1] + self.collider.rect.w
-        elseif collision_direction == RIGHT_COLLISION then
-          -- Colliding right
-          self.pos[1] = enemy.pos[1] - self.collider.rect.w
-        end
-      end
     end
 
     -- Do rock collision
@@ -1364,7 +1345,7 @@ function make_bby(pos, palette)
     1.0, -- Max health
     SFX_BBY_DAMAGED, -- Damage sfx to play
     0.5, -- Cooldown duration
-    0.0125, -- Auto damage taken per second
+    0.013, -- Auto damage taken per second
     death_callback_fn  -- Callback function to call on death
   )
   bby.wanderer = make_wanderer(
@@ -1494,21 +1475,6 @@ function make_bby(pos, palette)
         -- Do damage to enemy if we're wearing the bandana
         if self.current_item ~= nil and self.current_item.sprite == 87 then
           enemy.health:damage(self.bandana_damage_dealt)
-        end
-
-        local collision_direction = self.collider:get_collision_direction(enemy)
-        if collision_direction == TOP_COLLISION then
-          -- Colliding top
-          self.pos[2] = enemy.pos[2] + self.collider.rect.h
-        elseif collision_direction == BOTTOM_COLLISION then
-          -- Colliding bottom
-          self.pos[2] = enemy.pos[2] - self.collider.rect.h
-        elseif collision_direction == LEFT_COLLISION then
-          -- Colliding left
-          self.pos[1] = enemy.pos[1] + self.collider.rect.w
-        elseif collision_direction == RIGHT_COLLISION then
-          -- Colliding  right
-          self.pos[1] = enemy.pos[1] - self.collider.rect.w
         end
       end
     end
@@ -1665,7 +1631,7 @@ function make_enemy(pos, palette)
   enemy.v = {0, 0}
   enemy.sprite = 128
   enemy.active = true
-  enemy.damage_dealt = 0.065
+  enemy.damage_dealt = 0.09
 
   enemy.default_speed = enemy.max_speed
   enemy.sunglasses_speed_modifier = 0.12
@@ -1675,7 +1641,8 @@ function make_enemy(pos, palette)
     enemy, 
     0.3,
     1, 
-    palette or UNLOCKED_PALETTES[flr(rnd(#UNLOCKED_PALETTES)) + 1]
+    palette or UNLOCKED_PALETTES[flr(rnd(#UNLOCKED_PALETTES)) + 1],
+    true
   )
   enemy.collider = make_collider(
     enemy,
@@ -1726,6 +1693,7 @@ function make_enemy(pos, palette)
     enemy,
     nil,
     nil,
+    5, 
     find_target_fn
   ) 
 
@@ -1750,11 +1718,6 @@ function make_enemy(pos, palette)
   enemy.move = function(self)
     new_pos = v_add(self.pos, self.v)
     self.pos = new_pos
-    if (self.v[1] != 0 or self.v[2] != 0) then
-      self.animator.animation_flag = true
-    else
-      self.animator.animation_flag = false
-    end
   end
 
   enemy.update_for_sunglasses = function(self)
@@ -1775,13 +1738,14 @@ end
 
 
 -- Follow code
-function make_follower(parent, target, follow_speed, find_target_fn)
+function make_follower(parent, target, follow_speed, closest_distance, find_target_fn)
   local follower = {}
   follower.parent = parent
 
   follower.target = target  -- target must have pos
   follower.follow_speed = follow_speed  -- Uses parent's max_speed attribute if this is nil
   follower.is_following = true
+  follower.closest_distance = closest_distance  -- Closest you can be to the target before stopping
   follower.find_target_fn = find_target_fn  -- Optional function to find a target. Also called if target becomes inactive
 
   -- Find a target if we have a function but no starting target
@@ -1798,6 +1762,15 @@ function make_follower(parent, target, follow_speed, find_target_fn)
     if self.target ~= nil then
       local speed = self.follow_speed or self.parent.max_speed
       local difference = v_subtraction(self.target.pos, self.parent.pos)
+
+      if self.closest_distance ~= nil then
+        local distance = sqrt(difference[1]^2 + difference[2]^2)
+        if distance < self.closest_distance then 
+          self.parent.v = {0, 0}
+          return
+        end
+      end
+
       local normalized = v_normalized(difference)
       local v = v_scalar_multiplication(normalized, speed)
 
@@ -2020,7 +1993,6 @@ function make_health(parent,
 
   health.time_since_last_damage = cooldown_duration
   health.time_since_last_autodamage = 0.0
-
   
   health.active = true
   health.direct_damage_active = true
