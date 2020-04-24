@@ -288,7 +288,7 @@ function make_level_manager()
   level_manager.final_level = 6
 
   -- Number of stages for each level, listed sequentially
-  level_manager.stage_count = {24, 27, 40, 28, 10}
+  level_manager.stage_count = {24, 27, 40, 9999, 10}
   level_manager.map_bounds = {x=1*8, y=1*8, w=15*8, h=15*8}  -- Rect of map bounds
 
   level_manager.enemy_spawn_tl = {0, 0}
@@ -324,50 +324,9 @@ function make_level_manager()
     make_enemies()
     make_rocks()
     make_projectiles()
+    make_boss1({8*8 + 4,3*8})
 
     self.stage = 1
-
-    if self.level == 1 then
-      local rock_pos = {
-        {4, 3}, {4, 5}, {4, 7}, {4, 9}, {4, 11}, {4, 13},
-        {13, 12}, {13, 10}, {13, 8}, {13, 6}, {13, 4}
-      }
-      make_rocks(rock_pos)
-    elseif self.level == 2 then
-      self.map_palette = PALETTE_GREEN
-      local rock_pos = {
-        {3, 4}, {5, 4}, {7, 4}, {9, 4}, {11, 4}, {13, 4},
-        {4, 3}, {4, 5}, {4, 7}, {4, 9}, {4, 11}, {4, 13},
-        {13, 12}, {13, 10}, {13, 8}, {13, 6}, 
-      }
-      make_rocks(rock_pos)
-    elseif self.level == 3 then
-      self.map_palette = PALETTE_BLUE
-      local rock_pos = {
-        {3, 4}, {5, 4}, {7, 4}, {9, 4}, {11, 4}, {13, 4},
-        {4, 3}, {4, 5}, {4, 7}, {4, 9}, {4, 11}, {4, 13},
-        {13, 14}, {13, 12}, {13, 10}, {13, 8}, {13, 6},
-        {6, 13}, {8, 13}, {10, 13}, {12, 13}, {14, 13},
-      }
-      make_rocks(rock_pos)
-    elseif self.level == 4 then
-      self.map_palette = PALETTE_ORANGE
-      local rock_pos = {}
-      for x = 2, 15 do
-        add(rock_pos, {x, 5})
-        if (x % 3 == 1) then
-          add(rock_pos, {x, 7})
-        end
-        add(rock_pos, {x, 9})
-      end
-      make_rocks(rock_pos)
-    elseif self.level == 5 then
-      self.map_palette = PALETTE_ORANGE
-      rocks.rocks = {}
-      items.items = {}
-      enemies.enemies = {}
-    end
-
   end
 
   level_manager.init_stage = function(self)
@@ -385,6 +344,12 @@ function make_level_manager()
     -- Called once each time a new stage is entered
     if self.level == 1 then
       if self.stage == 1 then
+        local rock_pos = {
+          {4, 3}, {4, 5}, {4, 7}, {4, 9}, {4, 11}, {4, 13},
+          {13, 12}, {13, 10}, {13, 8}, {13, 6}, {13, 4}
+        }
+        make_rocks(rock_pos)
+
         self:draw_ui_msg("HI THERE 🅾️O🅾️  ")
         sfx(SFX_TALK)
         make_bby({8, 6})
@@ -420,6 +385,14 @@ function make_level_manager()
       end
     elseif self.level == 2 then
       if self.stage == 1 then
+        self.map_palette = PALETTE_GREEN
+        local rock_pos = {
+          {3, 4}, {5, 4}, {7, 4}, {9, 4}, {11, 4}, {13, 4},
+          {4, 3}, {4, 5}, {4, 7}, {4, 9}, {4, 11}, {4, 13},
+          {13, 12}, {13, 10}, {13, 8}, {13, 6}, 
+        }
+        make_rocks(rock_pos)
+
         make_bby({8, 6})
         self:draw_ui_msg("HEWWO! ^o^ SO SRY 2 SEE...")
         sfx(SFX_TALK)
@@ -456,6 +429,14 @@ function make_level_manager()
       end
     elseif self.level == 3 then
       if self.stage == 1 then
+        self.map_palette = PALETTE_BLUE
+        local rock_pos = {
+          {3, 4}, {5, 4}, {7, 4}, {9, 4}, {11, 4}, {13, 4},
+          {4, 3}, {4, 5}, {4, 7}, {4, 9}, {4, 11}, {4, 13},
+          {13, 14}, {13, 12}, {13, 10}, {13, 8}, {13, 6},
+          {6, 13}, {8, 13}, {10, 13}, {12, 13}, {14, 13},
+        }
+        make_rocks(rock_pos)
         self:draw_ui_msg("...")
         sfx(SFX_TALK)
         make_bby({8, 6})
@@ -521,10 +502,21 @@ function make_level_manager()
       end
     elseif self.level == 4 then
       if self.stage == 1 then
-        self.stage = 5
+        -- self.stage = 5
+        self.map_palette = PALETTE_ORANGE
+        -- Make rocks
+        local rock_pos = {}
+        for x = 2, 15 do
+          add(rock_pos, {x, 5})
+          if (x % 3 == 1) then
+            add(rock_pos, {x, 7})
+            add(rock_pos, {x, 9})
+          end
+        end
+        make_rocks(rock_pos)
+
         make_boss1({8*8 + 4,3*8})
         boss1.speech_do_for:start()
-        make_heart({14*8,14*8})
         self:draw_ui_msg("HEY BUDDI... I THNK MAYBE...")
         sfx(SFX_TALK)
         local bby1 = make_bby({6, 14})
@@ -540,9 +532,9 @@ function make_level_manager()
         player.pos[2] += 24
 
         -- Make bbys and rocks invulnerable
-        -- for _, rock in pairs(rocks.rocks) do
-        --   rock.health.active = false
-        -- end
+        for _, rock in pairs(rocks.rocks) do
+          rock.health.active = false
+        end
         for _, bby in pairs(bbys) do
           bby.health.active = false
         end
@@ -565,6 +557,7 @@ function make_level_manager()
         sfx(SFX_TALK)
         boss1.speech_do_for:start()
       elseif self.stage == 6 then
+        -- self.stage = 27
         self:draw_ui_msg(".welcom to hell mothr fuckr.", 
           PALETTE_BLACK)
         boss1.animator.palette = PALETTE_BLACK
@@ -583,27 +576,32 @@ function make_level_manager()
         for _, bby in pairs(bbys) do
           bby.health.active = true
         end
-      elseif self.stage == 7 then
+      elseif self.stage == 9 then
         make_enemy(self.enemy_spawn_tl)
         make_enemy(self.enemy_spawn_t, PALETTE_GREEN)
         make_enemy(self.enemy_spawn_tr, PALETTE_BLUE)
-      elseif self.stage == 12 then
+      elseif self.stage == 14 then
         make_enemy(self.enemy_spawn_l, PALETTE_BLUE)
         make_enemy(self.enemy_spawn_r, PALETTE_GREEN)
         make_enemy(self.enemy_spawn_t)
-      elseif self.stage == 17 then
-        make_enemy(self.enemy_spawn_t)
-      elseif self.stage == 18 then
-        make_enemy(self.enemy_spawn_bl, PALETTE_BLUE)
       elseif self.stage == 19 then
+        make_enemy(self.enemy_spawn_t)
+      elseif self.stage == 20 then
+        make_enemy(self.enemy_spawn_bl, PALETTE_BLUE)
+      elseif self.stage == 23 then
         make_enemy(self.enemy_spawn_br, PALETTE_GREEN)
-      elseif self.stage == 24 then
+      elseif self.stage == 26 then
         make_enemy(self.enemy_spawn_bl, PALETTE_BLUE)
         make_enemy(self.enemy_spawn_br, PALETTE_GREEN)
         make_enemy(self.enemy_spawn_t)
-      elseif self.stage == 26 then
-        red_enemy = make_enemy(self.enemy_spawn_t, PALETTE_RED)
-        red_enemy.max_speed = 0.75
+      elseif self.stage == 28 then
+        red_enemy = make_enemy(self.enemy_spawn_t, PALETTE_BLACK)
+        red_enemy.default_speed = 0.35
+        red_enemy.follower.target = bbys[1]
+      elseif self.stage > 34 then
+        make_enemy(self.enemy_spawn_t)
+        make_enemy(self.enemy_spawn_bl, PALETTE_BLUE)
+        make_enemy(self.enemy_spawn_br, PALETTE_GREEN)
       end
     elseif self.level == 5 then
       if self.stage == 1 then
@@ -630,6 +628,7 @@ function make_level_manager()
         sfx(SFX_TALK)
       end
     elseif self.level == self.final_level then
+      self.map_palette = PALETTE_ORANGE
       bby1=make_bby({2, 14})
       bby1.wanderer.active = false
       bby2=make_bby({6, 14}, PALETTE_GREEN)
@@ -1833,12 +1832,16 @@ function make_enemy(pos, palette)
     8,
     8)
 
-  death_callback_fn = function(enemy)
+  death_callback_fn = function(e)
     sfx(SFX_ENEMY_DEATH)
 
-    make_item(nil, enemy.pos)
+    if enemy.animator.palette == PALETTE_BLACK then
+      make_heart(e.pos)
+    else
+      make_item(nil, e.pos)
+    end
 
-    enemy.active = false
+    e.active = false
   end
   enemy.health = make_health(
     enemy,
