@@ -30,7 +30,7 @@ BBY_INDEXES_LENGTH = 0
 for _, _ in pairs(BBY_INDEXES) do BBY_INDEXES_LENGTH += 1 end
 
 FOOD_MILK_INDEX = 144
-FOOD_STEAK_INDEX = 145
+-- FOOD_STEAK_INDEX = 145
 
 BBY_NAMES = {
   "JON", "BETTY", "SAL", "CAT", "JOSH", "K8E", "JACK", "ANDY", "SCOTT", "ERICA", "JOEL", 
@@ -65,8 +65,8 @@ SFX_HEAL_ALL_BBYS = 11
 SFX_SCRAMBLE_CHARS = 12
 SFX_CRASH = 13
 SFX_TALK = 14
-SFX_BOSS1_DAMAGED = 15
-SFX_BOSS1_DEATH = 16
+SFX_PLAYER_DAMAGED = 15
+SFX_UNDEFINED = 16
 
 MUSIC_SPLASH_SCREEN = 50
 MUSIC_LVL1 = 0
@@ -108,29 +108,36 @@ function _update()
 
     player:update()
 
-    -- Update bby physics
     for _, bby in pairs(bbys) do 
       bby:update()
     end
 
-    -- Update enemy physics
     for _, enemy in pairs(enemies.enemies) do 
       enemy:update()
     end
 
-    -- Update rock physics
     for _, rock in pairs(rocks.rocks) do 
       rock:update()
     end
 
-    -- Update item physics
     for _, item in pairs(items.items) do 
       item:update()
     end
 
-    -- Update food physics
     for _, food in pairs(foods.foods) do 
       food:update()
+    end
+
+    for _, projectile in pairs(projectiles.projectiles) do 
+      projectile:update()
+    end
+
+    if boss1 then
+      boss1:update()
+    end
+
+    if heart then
+      heart:update()
     end
 
   end
@@ -165,9 +172,16 @@ function _draw()
       item:draw() 
     end
 
+    -- Draw the projectiles
+    for _, projectile in pairs(projectiles.projectiles) do 
+      projectile:draw()
+    end
+
     -- Table of character to draw in order of y axis
     local draw_table = {}
     draw_table[1] = player
+    if boss1 then draw_table[2] = boss1 end
+    if heart then draw_table[3] = heart end
     merge_tables(draw_table, bbys)
     merge_tables(draw_table, enemies.enemies)
     sort_table_by_pos(draw_table, 2)
@@ -284,13 +298,13 @@ end
 function make_level_manager()
   level_manager = {}
 
-  level_manager.level = 1
+  level_manager.level = 4
   level_manager.stage = 1  -- The progression of the current level
   level_manager.stage_duration = 5
-  level_manager.final_level = 5
+  level_manager.final_level = 6
 
   -- Number of stages for each level, listed sequentially
-  level_manager.stage_count = {24, 27, 40, 28}
+  level_manager.stage_count = {24, 27, 40, 28, 10}
   level_manager.map_bounds = {x=1*8, y=1*8, w=15*8, h=15*8}  -- Rect of map bounds
 
   level_manager.enemy_spawn_tl = {0, 0}
@@ -311,10 +325,12 @@ function make_level_manager()
   -- Components
 
   -- do_for that can be edited from anywhere. Hotswap the callback_fn and do start() to run it
-  level_manager.ui_do_for = make_do_for(level_manager, 2.5, nil)  
+  level_manager.ui_do_for = make_do_for(level_manager, 2.5)  
+  -- do_for for special effects like whiting out the screen. Hotswap the callback_fn and do start() to run it
+  level_manager.effect_do_for = make_do_for(level_manager, 20)  
 
   level_manager.init_level = function(self)
-    -- Play music on first 4 levels
+    -- Play music
     music(MUSIC_LVL1, 0, MUSIC_BITMASK)
 
     make_player()
@@ -326,25 +342,6 @@ function make_level_manager()
     make_projectiles()
 
     self.stage = 1
-
-    if DEBUG then
-        make_bby({9, 7})
-        -- make_bby({9, 8})
-        -- make_bby({9, 9})
-        -- make_bby({9, 10})
-        -- make_bby({9, 11})
-
-        make_rock({3, 3})
-        make_rock({3, 5})
-        make_rock({3, 7})
-        make_rock({3, 9})
-
-        make_enemy({16, 16})
-
-        items.create_all_items_randomly()
-
-      return
-    end
 
     if self.level == 1 then
       local rock_pos = {
@@ -377,31 +374,19 @@ function make_level_manager()
       self.map_palette = PALETTE_ORANGE
       local rock_pos = {}
       for x = 2, 15 do
-        add(rock_pos, {x, 4})
         add(rock_pos, {x, 5})
-        add(rock_pos, {x, 6})
-        add(rock_pos, {x, 7})
-        add(rock_pos, {x, 8})
+        if (x % 3 == 1) then
+          add(rock_pos, {x, 7})
+        end
+        add(rock_pos, {x, 9})
       end
       make_rocks(rock_pos)
+    elseif self.level == 5 then
+      self.map_palette = PALETTE_ORANGE
+      rocks.rocks = {}
+      items.items = {}
+      enemies.enemies = {}
     end
-
-  end
-
-  level_manager.reset_level = function(self)
-    self:destroy_level()
-    self:init_level()
-    self:init_stage()
-  end
-
-  level_manager.destroy_level = function(self)
-    -- Reset all level components
-    -- player = player
-    items.items = {}
-    foods.foods = {}
-    rocks.rocks = {}
-    enemies.enemies = {}
-    bbys = {}
 
   end
 
@@ -430,7 +415,7 @@ function make_level_manager()
         self:draw_ui_msg("MOVE HER WITH A PUSH ♥ ")
         sfx(SFX_TALK)
       elseif self.stage == 4 then
-        self:draw_ui_msg("SHE HUNGR. HIT ROCK 4 FOOD!!")
+        self:draw_ui_msg("SHE HUNGR. BREAK ROCK 4 MILK!!")
         sfx(SFX_TALK)
       elseif self.stage == 5 then
         self:draw_ui_msg("BUT MOST IMPORTANT... 🅾️_🅾️  ")
@@ -556,6 +541,10 @@ function make_level_manager()
       end
     elseif self.level == 4 then
       if self.stage == 1 then
+        self.stage = 5
+        make_boss1({8*8 + 4,3*8})
+        boss1.speech_do_for:start()
+        make_heart({14*8,14*8})
         self:draw_ui_msg("HEY BUDDI... I THNK MAYBE...")
         sfx(SFX_TALK)
         local bby1 = make_bby({6, 14}, PALETTE_ORANGE)
@@ -569,28 +558,98 @@ function make_level_manager()
         bby3.pos[1] += 4
         player.pos[1] += 4
         player.pos[2] += 24
+
+        -- Make bbys and rocks invulnerable
+        -- for _, rock in pairs(rocks.rocks) do
+        --   rock.health.active = false
+        -- end
+        for _, bby in pairs(bbys) do
+          bby.health.active = false
+        end
+
       elseif self.stage == 2 then
         self:draw_ui_msg("WE GOT OFF ON WRONG FOOT.")
         sfx(SFX_TALK)
+        boss1.speech_do_for:start()
         music(-1, 3000)
       elseif self.stage == 3 then
-        self:draw_ui_msg("IF ONLY I HAD A HEART ♥ ")
+        self:draw_ui_msg("IF ONLY I HAD A heart ♥ ")
         sfx(SFX_TALK)
+        boss1.speech_do_for:start()
       elseif self.stage == 4 then
-        self:draw_ui_msg("MAYB WE COULD TRY AGAIN")
+        self:draw_ui_msg("THEN MAYB WE COULD TRY AGAIN")
         sfx(SFX_TALK)
+        boss1.speech_do_for:start()
       elseif self.stage == 5 then
         self:draw_ui_msg("I JUST WANTED 2 SAY")
         sfx(SFX_TALK)
+        boss1.speech_do_for:start()
       elseif self.stage == 6 then
         self:draw_ui_msg(".welcom to hell mothr fuckr.", 
           PALETTE_BLACK)
+        boss1.animator.palette = PALETTE_BLACK
         sfx(SFX_CRASH)
+        boss1.speech_do_for:start()
         music(MUSIC_HELL, 0, MUSIC_BITMASK)
         self.map_palette = PALETTE_BLACK
+        boss1.projectile_do_for:start()
         for _, bby in pairs(bbys) do
           bby.wanderer.active = true
         end
+        -- Make bbys and rocks vulnerable
+        for _, rock in pairs(rocks.rocks) do
+          rock.health.active = true
+        end
+        for _, bby in pairs(bbys) do
+          bby.health.active = true
+        end
+      elseif self.stage == 7 then
+        make_enemy(self.enemy_spawn_tl, PALETTE_ORANGE)
+        make_enemy(self.enemy_spawn_t, PALETTE_GREEN)
+        make_enemy(self.enemy_spawn_tr, PALETTE_BLUE)
+      elseif self.stage == 12 then
+        make_enemy(self.enemy_spawn_l, PALETTE_BLUE)
+        make_enemy(self.enemy_spawn_r, PALETTE_GREEN)
+        make_enemy(self.enemy_spawn_t, PALETTE_ORANGE)
+      elseif self.stage == 17 then
+        make_enemy(self.enemy_spawn_t, PALETTE_ORANGE)
+      elseif self.stage == 18 then
+        make_enemy(self.enemy_spawn_bl, PALETTE_BLUE)
+      elseif self.stage == 19 then
+        make_enemy(self.enemy_spawn_br, PALETTE_GREEN)
+      elseif self.stage == 23 then
+        make_enemy(self.enemy_spawn_bl, PALETTE_BLUE)
+      elseif self.stage == 24 then
+        make_enemy(self.enemy_spawn_br, PALETTE_GREEN)
+      elseif self.stage == 25 then
+        make_enemy(self.enemy_spawn_t, PALETTE_ORANGE)
+      elseif self.stage == 31 then
+        red_enemy = make_enemy(self.enemy_spawn_bl, PALETTE_RED)
+        red_enemy.max_speed = 0.75
+      end
+    elseif self.level == 5 then
+      if self.stage == 1 then
+        -- Stop music
+        music(-1)
+        -- Apply whiteout effect
+        self.ui_do_for:stop()
+        sfx(SFX_HEAL_ALL_BBYS)
+        self.effect_do_for.callback_fn = function(l)
+          rectfill(
+            0, 0, 9*16, 9*16,
+            7)
+        boss1.animator.palette = PALETTE_GREY
+        end
+        self.effect_do_for:start()
+      elseif self.stage == 3 then
+        self:draw_ui_msg("...")
+        sfx(SFX_TALK)
+      elseif self.stage == 4 then
+        self:draw_ui_msg("...MY HEART...")
+        sfx(SFX_TALK)
+      elseif self.stage == 5 then
+        self:draw_ui_msg("...YOU'VE SAVED ME...")
+        sfx(SFX_TALK)
       end
     elseif self.level == self.final_level then
       bby1=make_bby({2, 14}, PALETTE_ORANGE)
@@ -604,10 +663,33 @@ function make_level_manager()
     end
   end
 
+  level_manager.init_winning_scene = function(self)
+    self.level = 5
+    self:init_level()
+    self:init_stage()
+  end
+
+  level_manager.reset_level = function(self)
+    self:destroy_level()
+    self:init_level()
+    self:init_stage()
+  end
+
+  level_manager.destroy_level = function(self)
+    -- Reset all level components
+    items.items = {}
+    foods.foods = {}
+    rocks.rocks = {}
+    enemies.enemies = {}
+    bbys = {}
+
+  end
+
   level_manager.draw_stage_ui = function(self)
     -- Called each frame for stage_specific ui updates
 
     -- Update our ui do_for that let's us spawn messages
+    self.effect_do_for:update()
     self.ui_do_for:update()
   end
 
@@ -657,43 +739,42 @@ function make_level_manager()
 
   level_manager.keep_in_map_bounds = function(self)
     -- Keep player in map bounds
-    if player.pos[2] < self.map_bounds.y then
-      -- top
-      player.pos[2] = self.map_bounds.y
-    end
-    if player.pos[2] > self.map_bounds.y + self.map_bounds.h then
-      -- bottom
-      player.pos[2] = self.map_bounds.y + self.map_bounds.h 
-    end
-    if player.pos[1] < self.map_bounds.x then
-      -- left
-      player.pos[1] = self.map_bounds.x
-    end
-    if player.pos[1] > self.map_bounds.x + self.map_bounds.w then
-      -- bottom
-      player.pos[1] = self.map_bounds.x + self.map_bounds.w
+    self:keep_object_in_map_bounds(player)
+
+    -- Keep heart in map bounds
+    if heart then
+      self:keep_object_in_map_bounds(heart, 8)
     end
 
     -- Keep bbys in map bounds
     for _, bby in pairs(bbys) do
-      -- Add/subtract 8 for one tile difference with bbys (they can't go all the way to the edge)
-      if bby.pos[2] < self.map_bounds.y + 8 then
-        -- top
-        bby.pos[2] = self.map_bounds.y + 8
-      end
-      if bby.pos[2] > self.map_bounds.y + self.map_bounds.h - 8 then
-        -- bottom
-        bby.pos[2] = self.map_bounds.y + self.map_bounds.h - 8
-      end
-      if bby.pos[1] < self.map_bounds.x + 8 then
-        -- left
-        bby.pos[1] = self.map_bounds.x + 8
-      end
-      if bby.pos[1] > self.map_bounds.x + self.map_bounds.w - 8 then
-        -- bottom
-        bby.pos[1] = self.map_bounds.x + self.map_bounds.w - 8
+      if self:keep_object_in_map_bounds(bby, 8) then
+        bby.is_colliding_with_unwalkable = true
       end
     end
+  end
+
+  level_manager.keep_object_in_map_bounds = function(self, obj, offset)
+    if not offset then offset = 0 end
+
+    if obj.pos[2] < self.map_bounds.y + offset then
+      -- top
+      obj.pos[2] = self.map_bounds.y + offset
+      return true
+    elseif obj.pos[2] > self.map_bounds.y + self.map_bounds.h - offset then
+      -- bottom
+      obj.pos[2] = self.map_bounds.y + self.map_bounds.h - offset
+      return true
+    elseif obj.pos[1] < self.map_bounds.x + offset then
+      -- left
+      obj.pos[1] = self.map_bounds.x + offset
+      return true
+    elseif obj.pos[1] > self.map_bounds.x + self.map_bounds.w - offset then
+      -- bottom
+      obj.pos[1] = self.map_bounds.x + self.map_bounds.w - offset
+      return true
+    end
+    return false
   end
 
   level_manager.draw_ui_msg = function(self, msg, palette, duration, dont_overwrite)
@@ -830,6 +911,11 @@ function make_player(pos)
     player,
     8,
     8)
+  player.blink_do_for = make_do_for(
+    player, 1, 
+    function (p) if flr(p.blink_do_for.time_left*10) % 2 == 0 then p.animator.active = false else p.animator.active = true end end,
+    function (p) p.animator.active = true end
+    )
 
   player.update = function(self)
     if self.movement_enabled then
@@ -837,6 +923,7 @@ function make_player(pos)
     end
     self.collider:update()
     self:collide()
+    self.blink_do_for:update()
     self:update_position()
   end
 
@@ -887,20 +974,7 @@ function make_player(pos)
 
         if bby.is_colliding_with_unwalkable then
           -- BBY is colliding with unwalkable. We can't move this way
-          local collision_direction = self.collider:get_collision_direction(bby)
-          if collision_direction == TOP_COLLISION then
-            -- Colliding top
-            self.pos[2] = bby.pos[2] + bby.collider.rect.h
-          elseif collision_direction == BOTTOM_COLLISION then
-            -- Colliding bottom
-            self.pos[2] = bby.pos[2] - bby.collider.rect.h
-          elseif collision_direction == LEFT_COLLISION then
-            -- Colliding left
-            self.pos[1] = bby.pos[1] + bby.collider.rect.w
-          elseif collision_direction == RIGHT_COLLISION then
-            -- Colliding right
-            self.pos[1] = bby.pos[1] - bby.collider.rect.w
-          end
+          self.collider:collide_rb(bby)
         else
           sfx(SFX_PUSH_BBY)
           bby.push_index = 1
@@ -928,36 +1002,61 @@ function make_player(pos)
       self.max_speed = self.default_speed
     end
 
+    -- Heart collision
+    if heart and self.collider:is_colliding(heart) then
+      sfx(SFX_PUSH_BBY)
+      local collision_direction = self.collider:get_collision_direction(heart)
+      if collision_direction == TOP_COLLISION then
+        -- Colliding top
+        heart.pos[2] = self.pos[2] - self.collider.rect.h
+      elseif collision_direction == BOTTOM_COLLISION then
+        -- Colliding bottom
+        heart.pos[2] = self.pos[2] + self.collider.rect.h
+      elseif collision_direction == LEFT_COLLISION then
+        -- Colliding left
+        heart.pos[1] = self.pos[1] - self.collider.rect.w
+      elseif collision_direction == RIGHT_COLLISION then
+        -- Colliding right
+        heart.pos[1] = self.pos[1] + self.collider.rect.w
+      end
+    end
+
+    -- Boss1 collision
+    if boss1 and boss1.active then
+      local collide_boss1_cb = function(b)
+        sfx(SFX_PLAYER_DAMAGED)
+        self.blink_do_for:start()
+      end
+      self.collider:collide_rb(boss1, collide_boss1_cb, 7)
+    end
+
+    -- Projectiles collision
+    local collide_projectile_cb = function(p)
+      p.active = false
+      sfx(SFX_PLAYER_DAMAGED)
+    end
+    for _, p in pairs(projectiles.projectiles) do
+      if self.collider:collide_rb(p, collide_projectile_cb, 3) then
+        break
+      end
+    end
+
     -- Do rock collision
     local has_damaged_rock = false
-    for _, rock in pairs(rocks.rocks) do
-      if rock.active and self.collider:is_colliding(rock) then
-        if not has_damaged_rock then
-          rock.health:damage(self.damage_to_rocks)
-          has_damaged_rock = true
-        end
-        local collision_direction = self.collider:get_collision_direction(rock)
-        if collision_direction == TOP_COLLISION then
-          -- Colliding top
-          self.pos[2] = rock.pos[2] + self.collider.rect.h
-        elseif collision_direction == BOTTOM_COLLISION then
-          -- Colliding bottom
-          self.pos[2] = rock.pos[2] - self.collider.rect.h
-        elseif collision_direction == LEFT_COLLISION then
-          -- Colliding left
-          self.pos[1] = rock.pos[1] + self.collider.rect.w
-        elseif collision_direction == RIGHT_COLLISION then
-          -- Colliding right
-          self.pos[1] = rock.pos[1] - self.collider.rect.w
-        end
+    local collide_rock_cb = function(rock)
+      if not has_damaged_rock then
+        rock.health:damage(self.damage_to_rocks)
+        has_damaged_rock = true
       end
+    end
+    for _, rock in pairs(rocks.rocks) do
+      self.collider:collide_rb(rock, collide_rock_cb)
     end
 
   end
 
   player.draw = function(self)
-    self.animator:animate()
-    self.animator:draw()
+    self.animator:update()
     if DEBUG then
       self.collider:draw()
     end
@@ -1201,11 +1300,15 @@ function make_food(pos, sprite)
   local food = {}
 
   food.pos = pos
-  food.sprite = sprite or flr(rnd(2)) + 144 -- Randomly chooses between the two food sprites at 144 and 145
   food.active = true
+  food.sprite = 144
 
+  -- Commented out and removed steak
   -- Milk heals less than steak
-  if food.sprite == 144 then food.health_given = 0.5 else food.health_given = 1.0 end
+  -- food.sprite = sprite or flr(rnd(2)) + 144 -- Randomly chooses between the two food sprites at 144 and 145
+  -- if food.sprite == 144 then food.health_given = 0.5 else food.health_given = 1.0 end
+
+  food.health_given = 1.0
 
   -- Components
   food.collider = make_collider(
@@ -1291,6 +1394,52 @@ function make_rock(pos)
   return rock
 end
 
+function make_heart(pos)
+  heart = {}
+
+  heart.sprite = 31-64 -- 31st sprite offset by 64 for the animator
+  heart.active = true
+  heart.pos = pos
+
+  -- Components
+  heart.animator = make_animator(
+    heart, 
+    0.3,
+    64, 
+    nil,
+    true)
+  heart.collider = make_collider(
+    heart,
+    8,
+    8)
+
+  heart.update = function(self)
+    if self.active then
+      self.collider:update()
+      self:collide()
+    end
+  end
+
+  heart.draw = function(self)
+    if self.active then
+      self.animator:update()
+    end
+  end
+
+  heart.collide = function(self)
+    -- Do boss collision
+    if boss1 and boss1.active and self.collider:is_colliding(boss1) then
+      self.active = false
+      level_manager:init_winning_scene()      
+    end
+    for _, rock in pairs(rocks.rocks) do
+      self.collider:collide_rb(rock)
+    end
+  end
+
+end
+
+
 -- BBY code
 function make_bbys(bbys_pos)
   bbys = {}
@@ -1367,8 +1516,7 @@ function make_bby(pos, palette)
 
   bby.draw = function(self)
     if self.active then
-      self.animator:animate()
-      self.animator:draw()
+      self.animator:update()
 
       local nametag = self.name
       if DEBUG then nametag = tostr(self.push_index) end
@@ -1388,7 +1536,7 @@ function make_bby(pos, palette)
     end
   end
 
-  bby.collide = function(self, i)
+  bby.collide = function(self)
     -- Do bby collision
     self.is_pushed_by_bby = false
 
@@ -1396,46 +1544,52 @@ function make_bby(pos, palette)
     self:collide_enemies()
     self:collide_food()
     self:collide_items()
-    self:collide_rocks()
-
-    if i==nil then
-      self:collide(false)
-    end
-
+    self:collide_unwalkable()
+    self:collide_projectiles()
   end
 
-  bby.collide_rocks = function (self)
-    -- Do rock collision
-    self.is_colliding_with_unwalkable = false
-    for _, rock in pairs(rocks.rocks) do
-      if rock.active and self.collider:is_colliding(rock) then
-        local bounceback_modifier = 1
-        if self.destroy_rocks_on_collision then
-          rock.health:damage(0.99)
-        end
-        self.is_colliding_with_unwalkable = true
-        local collision_direction = self.collider:get_collision_direction(rock)
-        
-        -- Note: Offset position by 1 so we hopefully don't get stuck on rocks as much
-        if collision_direction == TOP_COLLISION then
-          -- Colliding top
-          self.pos[2] = rock.pos[2] + self.collider.rect.h
-        elseif collision_direction == BOTTOM_COLLISION then
-          -- Colliding bottom
-          self.pos[2] = rock.pos[2] - self.collider.rect.h
-        elseif collision_direction == LEFT_COLLISION then
-          -- Colliding left
-          self.pos[1] = rock.pos[1] + self.collider.rect.w
-        elseif collision_direction == RIGHT_COLLISION then
-          -- Colliding  right
-          self.pos[1] = rock.pos[1] - self.collider.rect.w 
-        end
+  bby.collide_projectiles = function (self)
+    -- Collide projectiles
+    for _, p in pairs(projectiles.projectiles) do
+      if self.collider:collide_rb(p) then
+        self.health:damage(0.2, nil, true)
+        self.pos = v_add(self.pos, p.v)
+        p.active = false
+        break
       end
     end
   end
 
+  bby.collide_unwalkable = function (self)
+    -- Collide rocks
+    self.is_colliding_with_unwalkable = false
+
+    local collide_rock_cb = function(rock)
+      if self.destroy_rocks_on_collision then
+        rock.health:damage(0.99)
+      end
+
+      self.is_colliding_with_unwalkable = true
+    end
+    for _, rock in pairs(rocks.rocks) do
+      self.collider:collide_rb(rock, collide_rock_cb)
+    end
+
+    -- Collide Boss
+    collide_unwalkable_cb = function(rock)
+      self.is_colliding_with_unwalkable = true
+    end
+    if boss1 then
+      self.collider:collide_rb(boss1, collide_unwalkable_cb)
+    end
+
+    -- Collide Heart
+    if heart then
+      self.collider:collide_rb(heart, collide_unwalkable_cb)
+    end
+  end
+
   bby.collide_items = function (self)
-    -- Do Item collision
     for _, item in pairs(items.items) do
       if item.active and self.collider:is_colliding(item) then
         -- Revert the previous item's effects
@@ -1455,7 +1609,6 @@ function make_bby(pos, palette)
   end
 
   bby.collide_food = function (self)
-    -- Do Food collision
     for _, food in pairs(foods.foods) do
       if food.active and self.collider:is_colliding(food) then
         self.health:heal(food.health_given)
@@ -1466,7 +1619,6 @@ function make_bby(pos, palette)
   end
 
   bby.collide_enemies = function (self)
-    -- Do enemy collision
     for _, enemy in pairs(enemies.enemies) do
       if enemy.active and self.collider:is_colliding(enemy) then
         -- Get hurt
@@ -1547,63 +1699,123 @@ function make_bby(pos, palette)
 end
 
 function make_boss1(pos)
-  -- Inherits from bby
-  local boss1 = make_bby(palette)
+  -- Global boss1
+  boss1 = {}
 
   -- Configurations
   boss1.max_speed = 0.2
 
   boss1.name = "SHARON"
+  boss1.pos = pos
+  boss1.sprite = 47
   boss1.active = true
   boss1.damage_dealt = 0.065
 
   boss1.default_speed = boss1.max_speed
 
   -- Components
+  boss1.speech_do_for = make_do_for(
+    boss1, 3,
+    function (b) b.animator.animation_flag = true end,
+    function (b) b.animator.animation_flag = false end
+  )
+  boss1.projectile_do_for = make_do_for(
+    boss1, 5,
+    nil,
+    function (b)
+      make_projectile(b.pos, 1, player.pos, 20)
+      b.projectile_do_for:stop()
+      b.projectile_do_for:start()
+    end
+  )
+  boss1.projectile_do_for:stop()
   boss1.collider = make_collider(
     boss1,
     8,
     8)
-  boss1.do_for = make_do_for(boss1, 5, nil)
-
-  death_callback_fn = function(boss)
-    sfx(SFX_BOSS1_DEATH)
-  end
-  boss1.health = make_health(
+  boss1.animator = make_animator(
     boss1,
-    1.0, -- Max health
-    SFX_BOSS1_DAMAGED, -- Damage sfx to play
-    0.1, -- Cooldown duration
-    0.05, -- Auto damage taken per second
-    death_callback_fn  -- Callback function to call on death
-  )
+    0.1,
+    64,
+    PALETTE_GREY)
+
+  function boss1.update(self)
+    if self.active then
+      self.speech_do_for:update()
+      self.projectile_do_for:update()
+    end
+  end
+
+  function boss1.draw(self)
+    if self.active then
+      self.animator:update()
+    end
+  end
+
 end
 
 function make_projectiles()
   projectiles = {}
+
+  projectiles.projectiles = {}
 end
 
-function make_projectile(pos, sprite, vel, duration)
+function make_projectile(pos, speed, target_pos, duration)
   local p = {}
 
   p.pos = pos
-  p.vel = vel
+  p.speed = speed
+  p.target_pos = target_pos
   p.duration = duration
-  p.sprite = sprite
+  p.sprite = 15 - 64 -- 15th sprite offset by 64 for the animator
+  p.v = nil -- This is calculated below
 
   p.active = true
 
   -- Components
   p.collider = make_collider(
-    p, 4, 4)
+    p, 8, 8)
 
-  do_for_expired_fn = function(p) 
+  do_for_expiration_fn = function(p) 
     p.active = false
   end
-  p.do_for = make_do_for(p, p.duration, nil, do_for_expired_fn)
+  p.expiration_do_for = make_do_for(p, p.duration, nil, do_for_expired_fn)
+
+  p.animator = make_animator(
+    p, 
+    0.15,
+    64, 
+    nil,
+    true
+  )
+
+  function p.update(self)
+    if self.active then
+      self.expiration_do_for:update()
+      self.collider:update()
+
+      -- Update position based on velocity
+      self.pos = v_add(self.pos, self.v)
+    end
+  end
+
+  function p.draw(self)
+    if self.active then
+      self.animator:update()
+    end
+  end
+
+  function p.set_vel(self)
+    local difference = v_subtraction(target_pos, self.pos)
+    local distance = sqrt(difference[1]^2 + difference[2]^2)
+    local normalized = v_normalized(difference)
+    local v = v_scalar_multiplication(normalized, self.speed)
+
+    self.v = v
+  end
+  p:set_vel()
 
   projectiles.projectiles[#projectiles.projectiles + 1] = p
-
   return p
 end
 
@@ -1631,7 +1843,7 @@ function make_enemy(pos, palette)
   enemy.v = {0, 0}
   enemy.sprite = 128
   enemy.active = true
-  enemy.damage_dealt = 0.09
+  enemy.damage_dealt = 0.095
 
   enemy.default_speed = enemy.max_speed
   enemy.sunglasses_speed_modifier = 0.12
@@ -1709,8 +1921,7 @@ function make_enemy(pos, palette)
 
   enemy.draw = function(self)
     if self.active then
-      self.animator:animate()
-      self.animator:draw()
+      self.animator:update()
       level_manager:draw_msg({self.pos[1], self.pos[2] - 8}, self.name, self.animator.palette, DISPLAY_NAMEBAR_UI, self.health.health)
     end
   end
@@ -1842,7 +2053,7 @@ function make_wanderer(parent, wander_speed, frequency, duration, random_offset)
             y = 0 
           end
 
-          self.parent.v = {x, y}
+          self.parent.v = {max(x, self.parent.v[1]), max(y, self.parent.v[2])}
 
           self.is_wandering = true
         end
@@ -1869,6 +2080,7 @@ function make_animator(parent, fps, sprite_offset, palette, animation_flag)
   animator.fps = fps
   animator.sprite_offset = sprite_offset
   animator.animation_flag = animation_flag or false
+  animator.active = true
 
   animator.time_since_last_frame = 0
   animator.animation_frame = 0
@@ -1876,13 +2088,26 @@ function make_animator(parent, fps, sprite_offset, palette, animation_flag)
 
   animator.palette = palette
 
-  animator.animate = function(self)
-    -- Increment the animation frame count
+  animator.update = function(self)
+    -- Update and animate the sprite
     self.time_since_last_frame += DELTA_TIME
-    if self.animation_flag and self.time_since_last_frame > self.fps then
-      self.animation_frame = (self.animation_frame + 1) % 2
-      self.time_since_last_frame = 0
+    if self.active then
+      if self.animation_flag and self.time_since_last_frame > self.fps then
+        self.animation_frame = (self.animation_frame + 1) % 2
+        self.time_since_last_frame = 0
+      end
+
+      if(self.palette != nil) then
+        set_palette(self.palette)
+      end
+
+      spr(self:get_animation_frame(), parent.pos[1], parent.pos[2], 1.0, 1.0, self.flip_sprite)
+
+      if(self.palette != nil) then
+        reset_palette()
+      end
     end
+
   end
 
   animator.get_animation_frame = function(self)
@@ -1890,18 +2115,6 @@ function make_animator(parent, fps, sprite_offset, palette, animation_flag)
       return self.parent.sprite + self.sprite_offset * (self.animation_frame + 1)
     else
       return self.parent.sprite
-    end
-  end
-
-  animator.draw = function(self)
-    if(self.palette != nil) then
-      set_palette(self.palette)
-    end
-
-    spr(self:get_animation_frame(), parent.pos[1], parent.pos[2], 1.0, 1.0, self.flip_sprite)
-
-    if(self.palette != nil) then
-      reset_palette()
     end
   end
 
@@ -1955,6 +2168,31 @@ function make_collider(parent, w, h, offset)
     if (left_hit) then return LEFT_COLLISION end
     local right_hit = rects_are_colliding(self.r, other)
     if (right_hit) then return RIGHT_COLLISION end
+  end
+
+  collider.collide_rb = function(self, other, callback_fn, offset)
+    -- Pushes us to the side when we're colliding against something
+    -- callback_fn is called on successful collision
+    if other.active and self:is_colliding(other) then
+      if callback_fn then callback_fn(other) end
+      if not offset then offset = 0 end
+      local collision_direction = self:get_collision_direction(other)
+      if collision_direction == TOP_COLLISION then
+        -- Colliding top
+        self.parent.pos[2] = other.pos[2] + self.rect.h + offset
+      elseif collision_direction == BOTTOM_COLLISION then
+        -- Colliding bottom
+        self.parent.pos[2] = other.pos[2] - self.rect.h - offset
+      elseif collision_direction == LEFT_COLLISION then
+        -- Colliding left
+        self.parent.pos[1] = other.pos[1] + self.rect.w + offset
+      elseif collision_direction == RIGHT_COLLISION then
+        -- Colliding right
+        self.parent.pos[1] = other.pos[1] - self.rect.w - offset
+      end
+      return true
+    end
+    return false
   end
 
   collider.draw = function(self)
@@ -2012,8 +2250,8 @@ function make_health(parent,
     end
   end
 
-  health.damage = function(self, damage, play_sfx)
-    if self.active and self.direct_damage_active and (self.cooldown_duration == nil or (self.time_since_last_damage > self.cooldown_duration)) then
+  health.damage = function(self, damage, play_sfx, ignore_cooldown)
+    if self.active and self.direct_damage_active and (ignore_cooldown or self.cooldown_duration == nil or (self.time_since_last_damage > self.cooldown_duration)) then
       self.health -= damage
       self.time_since_last_damage = 0
 
@@ -2063,8 +2301,8 @@ function make_do_for(parent, duration, callback_fn, expired_fn)
         self.callback_fn(self.parent)
       end
     elseif not self.has_expired and self.expired_fn ~= nil then
-      self.expired_fn(self.parent)
       self.has_expired = true
+      self.expired_fn(self.parent)
     end
   end
 
@@ -2075,6 +2313,7 @@ function make_do_for(parent, duration, callback_fn, expired_fn)
 
   do_for.stop = function(self)
     self.time_left = 0
+    self.has_expired = true
   end
 
   return do_for
@@ -2225,21 +2464,21 @@ __gfx__
 00000000777777779f9f9f9f9f9f99997f7777f97f7f77f9777f777799f777f799f7777799999f9f99999999f994999900000000000000000000000008a99a80
 000000007f7777f7999999999999999977777f9977777f99777777779f77f7779f77f7f79999999999e49999fe999e9900000000000000000000000000888800
 000000000000000099999999000000000000000000000000000000000000000000000000000000009ee999eefee99e0900000000000000000000000000000000
-000000000000000099999999000000000000000000000000000000000000000000000000000000009e999eeef9e9900900000000000000000000000008800880
-0000000000000000999999990000000000000000000000000000000000000000000000000000000090999eeef990900900000000000000000000000087728882
-00000000000000009999999900000000000000000000000000000000000000000000000000000000909909eff990900900000000000000000000000088888882
-000000000000000099999999000000000000000000000000000000000000000000000000000000009099099ff990900000000000000000000000000008888820
-000000000000000099999999000000000000000000000000000000000000000000000000000000000090099ff990900000000000000000000000000000888200
-000000000000000099999999000000000000000000000000000000000000000000000000000000000090009ff900900000000000000000000000000000022000
-000000000000000099999999000000000000000000000000000000000000000000000000000000000090009ff900000000000000000000000000000000000000
-00eeee0000999e0e0e9999000eeeeee00e9ee9e000999900e09999000099990000999900000000000090009ff900000000000000000000000000000000000000
-0eeeeee0097aaae009eaaa9eeeeeeeee0eeeeee0097aaa900eeeeee0097aaa90097aaa90000000000000009f9400000000000000000000000000000000000000
-974aa4a9974aaeae974eeee9ee4ee4ee974ee4a9974aa4a9e74aa4a9974aa4a9974aa4a9000000000000009f9400000000000000000000000000000000000000
-9a2aa2a99a2aa2a99a2aeee9ee2ae2ae9a2aa2a99a2ee2a99a2aa2a99a2aa2a99a2aa2a9000000000000009ff400000000000000000000000000000000000000
-ee9aa9eeee9aa9eeee9aaeeeee9aa9eeee9aa9eeee9ee9eeee9aa9ee9eeaaee9ee9aa9ee000000000000009ff400000000000000000000000000000000000000
-09a44a9009a44a9009a44a9009a44a9009a44a9009a44a9009a44a90eeeeeeee09a44a90000000000000009f9400000000000000000000000000000000000000
-009999000099990000999900009999000099990000999900009999000ee99ee00099990000000000000009ff9940000000000000000000000000000000000000
-09900990099009900990099009900990099009900990099009900990099009900990099000000000000009ff9940000000000000000000000000000000000000
+000000000000000099999999000000000000000000000000000000000000000000000000000000009e999eeef9e9900900000000000000000000000009000090
+0000000000000000999999990000000000000000000000000000000000000000000000000000000090999eeef990900900000000000000000000000008800880
+00000000000000009999999900000000000000000000000000000000000000000000000000000000909909eff990900900000000000000000000000087728882
+000000000000000099999999000000000000000000000000000000000000000000000000000000009099099ff990900000000000000000000000000088888882
+000000000000000099999999000000000000000000000000000000000000000000000000000000000090099ff990900000000000000000000000000008888820
+000000000000000099999999000000000000000000000000000000000000000000000000000000000090009ff900900000000000000000000000000009888290
+000000000000000099999999000000000000000000000000000000000000000000000000000000000090009ff900000000000000000000000000000000022000
+00eeee0000999e0e0e9999000eeeeee00e9ee9e000999900e09999000099990000999900000000000090009ff900000000000000000000000000000000999900
+0eeeeee0097aaae009eaaa9eeeeeeeee0eeeeee0097aaa900eeeeee0097aaa90097aaa90000000000000009f94000000000000000000000000000000097aaa90
+974aa4a9974aaeae974eeee9ee4ee4ee974ee4a9974aa4a9e74aa4a9974aa4a9974aa4a9000000000000009f94000000000000000000000000000000974aa4a9
+9a2aa2a99a2aa2a99a2aeee9ee2ae2ae9a2aa2a99a2ee2a99a2aa2a99a2aa2a99a2aa2a9000000000000009ff40000000000000000000000000000009a2aa2a9
+ee9aa9eeee9aa9eeee9aaeeeee9aa9eeee9aa9eeee9ee9eeee9aa9ee9eeaaee9ee9aa9ee000000000000009ff4000000000000000000000000000000ee9aa9ee
+09a44a9009a44a9009a44a9009a44a9009a44a9009a44a9009a44a90eeeeeeee09a44a90000000000000009f9400000000000000000000000000000009a44a90
+009999000099990000999900009999000099990000999900009999000ee99ee00099990000000000000009ff9940000000000000000000000000000000999900
+09900990099009900990099009900990099009900990099009900990099009900990099000000000000009ff9940000000000000000000000000000009900990
 0099990000999900009999000099990000eeee00e099990ee099990eeeeeeeee000000000000000000004ffff940000000000000000000000000000000000000
 097aaa90097aaa90097aaa90097aaa900eeeeee00e7aaae0eeeeeeeee97aaa9e000000000000000000004ffff940000000097900000000000000000000000000
 974aa4a97eeee7ee974aa4a9974aa4a9ee4aa4ee974aa4a9e74ee4aee74aa4ae000000000000000000004f999994000000979990000000000000000000000000
@@ -2256,22 +2495,22 @@ ee9aa9eeee7aaee7eeeeeeeeee9aa9eeee9aa9eeee9aa9eeeeeaaeeeee9aa9ee0000000000000000
 099eee90099eee90099eee900000000000000000eeeeeeeeee4e44ee0004eee4e444004e00000000004ee4000e44444444404440000000000000000008a99a80
 00999990099999900099999000000000000000004444444400eee00000004e404e4004e40000000000044000e400000000000000000000000000000000888800
 09900990000009900990000000000000000000000000000000eee000000004000400004000000000000000004000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000eeee00000000000000000000000000000000000000000008800880
-0000000000000000000000000000000000000000eeeeeeee0000000000000000077777700eeeeee000000000e000000e0eeeeee4000000000000000087728882
-000000000000000000000000000000000000000000eeee447eeee7eeeeeeeeee0eeeeee4eeeeeeeee000000eeeeeeeee0eeeeee4000000000000000088888882
+00000000000000000000000000000000000000000000000000000000000000000000000000eeee00000000000000000000000000000000000000000090000009
+0000000000000000000000000000000000000000eeeeeeee0000000000000000077777700eeeeee000000000e000000e0eeeeee4000000000000000008800880
+000000000000000000000000000000000000000000eeee447eeee7eeeeeeeeee0eeeeee4eeeeeeeee000000eeeeeeeee0eeeeee4000000000000000087728882
 0000000000000000000000000000000000000000000ee400e7eeee7e4eeeeee40ee40ee4eeeeeeeeee0000eee00ee00e0eeeeee4000000000000000088888882
-000000000000000000000000000000000000000000eeee00ee744ee704eeee400ee40ee4eeeeeeee4ee00ee4e00ee00e0eeeeee4000000000000000008888820
-00000000000000000000000000000000000000000eeeeee044400444004ee4000ee40ee44eeeeee404e40e40eee44eee0eeeeee4000000000000000000888200
-0000000000000000000000000000000000000000eeeeeeee00000000000440000ee40ee404eeee40004004004e4004e40eeeeee4000000000000000000022000
-0000000000000000000000000000000000000000444444440000000000000000044004400ee44ee0000000000400004004444444000000000000000000000000
-00eeee0000999e0e0e9999000eeeeee00e9ee9e000999900e0999900009999000099990000000000000000000000000000000000000000000000000000000000
-0eeeeee0097aaae009eaaa9eeeeeeeee0eeeeee0097aaa900eeeeee0097aaa90097aaa9000000000000000000000000000000000000000000000000000000000
-974aa4a9974aaeae974eeee9ee4ee4ee974ee4a9974aa4a9e74aa4a9974aa4a9974aa4a900000000000000000000000000000000000000000000000000000000
-9a2aa2a99a2aa2a99a2aeee9ee2ae2ae9a2aa2a99a2ee2a99a2aa2a99a2aa2a99a2aa2a900000000000000000000000000000000000000000000000000000000
-ee9aa9eeee9aa9eeee9aaeeeee9aa9eeee9aa9eeee9ee9eeee9aa9ee9eeaaee9ee9aa9ee00000000000000000000000000000000000000000000000000000000
-09a44a9009a44a9009a44a9009a44a9009a44a9009a44a9009a44a90eeeeeeee09a44a9000000000000000000000000000000000000000000000000000000000
-099999000999990009999900099999000999990009999900099999000ee99ee00999990000000000000000000000000000000000000000000000000000000000
-00000990000009900000099000000990000009900000099000000990000009900000099000000000000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000eeee00ee744ee704eeee400ee40ee4eeeeeeee4ee00ee4e00ee00e0eeeeee4000000000000000088888882
+00000000000000000000000000000000000000000eeeeee044400444004ee4000ee40ee44eeeeee404e40e40eee44eee0eeeeee4000000000000000008888820
+0000000000000000000000000000000000000000eeeeeeee00000000000440000ee40ee404eeee40004004004e4004e40eeeeee4000000000000000090888209
+0000000000000000000000000000000000000000444444440000000000000000044004400ee44ee0000000000400004004444444000000000000000009022090
+00eeee0000999e0e0e9999000eeeeee00e9ee9e000999900e0999900009999000099990000000000000000000000000000000000000000000000000000999900
+0eeeeee0097aaae009eaaa9eeeeeeeee0eeeeee0097aaa900eeeeee0097aaa90097aaa90000000000000000000000000000000000000000000000000097aaa90
+974aa4a9974aaeae974eeee9ee4ee4ee974ee4a9974aa4a9e74aa4a9974aa4a9974aa4a9000000000000000000000000000000000000000000000000974aa4a9
+9a2aa2a99a2aa2a99a2aeee9ee2ae2ae9a2aa2a99a2ee2a99a2aa2a99a2aa2a99a2aa2a90000000000000000000000000000000000000000000000009a2aa2a9
+ee9aa9eeee9aa9eeee9aaeeeee9aa9eeee9aa9eeee9ee9eeee9aa9ee9eeaaee9ee9aa9ee000000000000000000000000000000000000000000000000ee9aa9ee
+09a44a9009a44a9009a44a9009a44a9009a44a9009a44a9009a44a90eeeeeeee09a44a9000000000000000000000000000000000000000000000000009a44a90
+099999000999990009999900099999000999990009999900099999000ee99ee00999990000000000000000000000000000000000000000000000000000999900
+00000990000009900000099000000990000009900000099000000990000009900000099000000000000000000000000000000000000000000000000009900990
 0099990000999900009999000099990000eeee00e099990ee099990eeeeeeeee0000000000000000000000000000000000000000000000000000000000000000
 097aaa90097aaa90097aaa90097aaa900eeeeee00e7aaae0eeeeeeeee97aaa9e0000000000000000000000000000000000095500000000000000000000000000
 974aa4a97eeee7ee974aa4a9974aa4a9ee4aa4ee974aa4a9e74ee4aee74aa4ae0000000000000000000000000000000000955990000000000000000000000000
@@ -2296,14 +2535,14 @@ a990099a9a0000a9a990099a00000000000000000000000000000000000000000000000000000000
 06777760788888700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 06777760077777000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00666600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00eeee0000999e0e0e9999000eeeeee00e9ee9e000999900e0999900009999000099990000000000000000000000000000000000000000000000000000000000
-0eeeeee0097aaae009eaaa9eeeeeeeee0eeeeee0097aaa900eeeeee0097aaa90097aaa9000000000000000000000000000000000000000000000000000000000
-974aa4a9974aaeae974eeee9ee4ee4ee974ee4a9974aa4a9e74aa4a9974aa4a9974aa4a900000000000000000000000000000000000000000000000000000000
-9a2aa2a99a2aa2a99a2aeee9ee2ae2ae9a2aa2a99a2ee2a99a2aa2a99a2aa2a99a2aa2a900000000000000000000000000000000000000000000000000000000
-ee9aa9eeee9aa9eeee9aaeeeee9aa9eeee9aa9eeee9ee9eeee9aa9ee9eeaaee9ee9aa9ee00000000000000000000000000000000000000000000000000000000
-09a44a9009a44a9009a44a9009a44a9009a44a9009a44a9009a44a90eeeeeeee09a44a9000000000000000000000000000000000000000000000000000000000
-009999900099999000999990009999900099999000999990009999900ee99ee00099999000000000000000000000000000000000000000000000000000000000
-09900000099000000990000009900000099000000990000009900000099000000990000000000000000000000000000000000000000000000000000000000000
+00eeee0000999e0e0e9999000eeeeee00e9ee9e000999900e0999900009999000099990000000000000000000000000000000000000000000000000000999900
+0eeeeee0097aaae009eaaa9eeeeeeeee0eeeeee0097aaa900eeeeee0097aaa90097aaa90000000000000000000000000000000000000000000000000097aaa90
+974aa4a9974aaeae974eeee9ee4ee4ee974ee4a9974aa4a9e74aa4a9974aa4a9974aa4a9000000000000000000000000000000000000000000000000974aa4a9
+9a2aa2a99a2aa2a99a2aeee9ee2ae2ae9a2aa2a99a2ee2a99a2aa2a99a2aa2a99a2aa2a90000000000000000000000000000000000000000000000009a2aa2a9
+ee9aa9eeee9aa9eeee9aaeeeee9aa9eeee9aa9eeee9ee9eeee9aa9ee9eeaaee9ee9aa9ee000000000000000000000000000000000000000000000000ee9449ee
+09a44a9009a44a9009a44a9009a44a9009a44a9009a44a9009a44a90eeeeeeee09a44a9000000000000000000000000000000000000000000000000009a44a90
+009999900099999000999990009999900099999000999990009999900ee99ee00099999000000000000000000000000000000000000000000000000000999900
+09900000099000000990000009900000099000000990000009900000099000000990000000000000000000000000000000000000000000000000000009900990
 0099990000999900009999000099990000eeee00e099990ee099990eeeeeeeee0000000000000000000000000000000000000000000000000000000000000000
 097aaa90097aaa90097aaa90097aaa900eeeeee00e7aaae0eeeeeeeee97aaa9e0000000000000000000000000000000000000000000000000000000000000000
 974aa4a97eeee7ee974aa4a9974aa4a9ee4aa4ee974aa4a9e74ee4aee74aa4ae0000000000000000000000000000000000000000000000000000000000000000
@@ -2381,9 +2620,9 @@ __sfx__
 010500000d200152001c200242002c20033200382003220025200000000d20000200042001520000000272003220038200000002920021200092000e200162002620029200362003b20038200262000b20000000
 000300003a673346732e67329673246731f6731d6731d6731b6731a67318673176731567313673126730d6730c673086730667304673026730067300673006730066500655006550065500655006550065500655
 000a00000b140061500e140061500b14006100001000b100001000010000100001000010000100001000010000100001000010000100001000010000100001000010000100001000010000100001000010000100
-000300000a1501e1502d1503a1503615023150151500e1500a1500815006150041500415003150020500215001150001500010000100001000010000100011000110001100001000010000100001000010000100
+000300000d7501e7502d7503a7503675023750157500e7500a7500875006750047500475003750027500275001750007500070000700007000070000700017000170001700007000070000700007000070000700
 000300000a1701e1702d1703a1703617023170151700e1700a170081700617004170041700317002170061700b170111701b1702f170371701c1701117014170171701c170251703b1703f17037170261700a170
-001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00060000030000e0001c0002500035000340000d000330003c0002c0003e00039000190001a0002200029000210001e000230002b0002f0003b0001400026000310003e000190002100028000330003700011000
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 01100000180300f0001c030000001f030000002303000000240300100023030010001a0000f000180300100021030140001f0300200021030020001c0300200021030030001a0300600021000040001803005000
