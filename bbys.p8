@@ -2,9 +2,6 @@ pico-8 cartridge // http://www.pico-8.com
 version 18
 __lua__
 
--- DEBUG CONTROLS
-DEBUG = false
-
 -- Constants
 MAP_SIZE_X = 16
 MAP_SIZE_Y = 16
@@ -20,28 +17,20 @@ PALETTE_PINK = 4
 PALETTE_BLACK = 5
 
 PALETTES = {PALETTE_ORANGE, PALETTE_GREEN, PALETTE_BLUE, PALETTE_GREY}
-PALETTES_LENGTH = 0
-for _, _ in pairs(PALETTES) do PALETTES_LENGTH += 1 end
 
 ITEM_INDEXES = {69, 70, 71, 72, 73, 74, 75, 76, 85, 86, 87, 88, 89, 90, 91, 92}
 
 BBY_INDEXES = {32, 33, 34, 35, 36, 37, 38, 39, 48, 49, 50, 51, 52, 53, 54, 55}
-BBY_INDEXES_LENGTH = 0
-for _, _ in pairs(BBY_INDEXES) do BBY_INDEXES_LENGTH += 1 end
 
 FOOD_MILK_INDEX = 144
--- FOOD_STEAK_INDEX = 145
 
 BBY_NAMES = {
   "JON", "BETTY", "SAL", "CAT", "JOSH", "K8E", "JACK", "ANDY", "SCOTT", "ERICA", "JOEL", 
-  "NOODL", "JEFF", "GORBY", "VINNY", "BBYCAKE", "CHARLI", "BBYJESUS", "TIPPR", "MAMA", "BABA", "DAN", "LUA", "LUNA",
-  "GOOBY", "GARFO", "BBYHITLR", "MR BBY", "CARL", "UGLI", "MARI", "GRINCH", "CONWAY", "GARTH",
-  "MARK", "TOM", "SPUD", "ADRI", "LINDA", "RAINY", "FROGI", "MARSHL", "SEAN", "SANS", "ANG", "GENO", "MARIO", "PEACH",
-  "DAISY", "BRIT", "KYLE", "TESS", "NIC", "NICK", "RYAN", "HALY", "TERAN", "WINDY", "KENNY"
+  "NOODL", "JEFF", "GORBY", "VINNY", "BBYCAKE", "BBYJESUS", "TIPPR", "DAN", "LUA", "LUNA",
+  "GOOBY", "GARFO", "BBYHITLR", "CARL", "MARI", "CONWAY", "GARTH",
+  "MARK", "TOM", "SPUD", "ADRI", "LINDA", "RAINY", "FROGI", "MARSHL", "SEAN", "SANS", "ANG", "GENO",
+  "DASY", "BRIT", "KYLE", "TESS", "NIC", "NICK", "RYAN", "HALY", "TERAN", "WINDY", "KENNY"
 }
-
-BBY_NAMES_LENGTH = 0
-for _, _ in pairs(BBY_NAMES) do BBY_NAMES_LENGTH += 1 end
 
 TOP_COLLISION = 0
 BOTTOM_COLLISION = 1
@@ -81,11 +70,6 @@ DISPLAY_NAMEBAR_UI = true
 SPLASH_SCREEN_Y_POS = 0
 LAST_CHECKED_TIME = 0.0
 DELTA_TIME = 0.0  -- time since last frame
-UNLOCKED_PALETTES = {PALETTE_ORANGE}
-
--- Use all palettes in debug mode
-if DEBUG then UNLOCKED_PALETTES = PALETTES end
-
 
 -- Game Loop 🅾️_🅾️
 function _init()
@@ -349,8 +333,6 @@ function make_level_manager()
         {13, 12}, {13, 10}, {13, 8}, {13, 6}, {13, 4}
       }
       make_rocks(rock_pos)
-
-      UNLOCKED_PALETTES = {PALETTE_ORANGE}
     elseif self.level == 2 then
       self.map_palette = PALETTE_GREEN
       local rock_pos = {
@@ -359,8 +341,6 @@ function make_level_manager()
         {13, 12}, {13, 10}, {13, 8}, {13, 6}, 
       }
       make_rocks(rock_pos)
-
-      UNLOCKED_PALETTES = {PALETTE_ORANGE, PALETTE_GREEN}
     elseif self.level == 3 then
       self.map_palette = PALETTE_BLUE
       local rock_pos = {
@@ -440,7 +420,7 @@ function make_level_manager()
       end
     elseif self.level == 2 then
       if self.stage == 1 then
-        make_bby({8, 6}, PALETTE_ORANGE)
+        make_bby({8, 6})
         self:draw_ui_msg("HEWWO! ^o^ SO SRY 2 SEE...")
         sfx(SFX_TALK)
       elseif self.stage == 2 then
@@ -463,14 +443,14 @@ function make_level_manager()
         make_enemy(self.enemy_spawn_l, PALETTE_GREEN)
       elseif self.stage == 15 then
         -- Two more enemies from the same location go after other bby
-        make_enemy(self.enemy_spawn_t, PALETTE_ORANGE)
-        make_enemy(self.enemy_spawn_r, PALETTE_ORANGE)
+        make_enemy(self.enemy_spawn_t)
+        make_enemy(self.enemy_spawn_r)
       elseif self.stage == 19 then
         make_enemy(self.enemy_spawn_t, PALETTE_GREEN)
       elseif self.stage == 20 then
         make_enemy(self.enemy_spawn_b, PALETTE_GREEN)
       elseif self.stage == 21 then
-        make_enemy(self.enemy_spawn_r, PALETTE_ORANGE)
+        make_enemy(self.enemy_spawn_r)
       elseif self.stage == 22 then
         make_enemy(self.enemy_spawn_l, PALETTE_GREEN)
       end
@@ -478,7 +458,7 @@ function make_level_manager()
       if self.stage == 1 then
         self:draw_ui_msg("...")
         sfx(SFX_TALK)
-        make_bby({8, 6}, PALETTE_ORANGE)
+        make_bby({8, 6})
         make_bby({8, 7}, PALETTE_GREEN)
       elseif self.stage == 2 then
         self:draw_ui_msg("XCUSE ME 🅾️_🅾️  ")
@@ -499,7 +479,7 @@ function make_level_manager()
         make_enemy(self.enemy_spawn_br, PALETTE_BLUE)
       elseif self.stage == 13 then
         make_enemy(self.enemy_spawn_l, PALETTE_GREEN)
-        make_enemy(self.enemy_spawn_r, PALETTE_ORANGE)
+        make_enemy(self.enemy_spawn_r)
       elseif self.stage == 17 then
         make_enemy(self.enemy_spawn_tl, PALETTE_BLUE)
         make_enemy(self.enemy_spawn_bl, PALETTE_GREEN)
@@ -530,12 +510,12 @@ function make_level_manager()
       elseif self.stage == 30 then
         make_enemy(self.enemy_spawn_tl, PALETTE_BLUE)
         make_enemy(self.enemy_spawn_tr, PALETTE_GREEN)
-        make_enemy(self.enemy_spawn_bl, PALETTE_ORANGE)
+        make_enemy(self.enemy_spawn_bl)
         make_enemy(self.enemy_spawn_br, PALETTE_BLUE)
       elseif self.stage == 31 then
         make_enemy(self.enemy_spawn_t, PALETTE_BLUE)
       elseif self.stage == 32 then
-        make_enemy(self.enemy_spawn_b, PALETTE_ORANGE)
+        make_enemy(self.enemy_spawn_b)
       elseif self.stage == 33 then
         make_enemy(self.enemy_spawn_b, PALETTE_GREEN)
       end
@@ -547,7 +527,7 @@ function make_level_manager()
         make_heart({14*8,14*8})
         self:draw_ui_msg("HEY BUDDI... I THNK MAYBE...")
         sfx(SFX_TALK)
-        local bby1 = make_bby({6, 14}, PALETTE_ORANGE)
+        local bby1 = make_bby({6, 14})
         local bby2 = make_bby({8, 14}, PALETTE_GREEN)
         local bby3 = make_bby({10, 14}, PALETTE_BLUE)
         bby1.wanderer.active = false
@@ -604,27 +584,25 @@ function make_level_manager()
           bby.health.active = true
         end
       elseif self.stage == 7 then
-        make_enemy(self.enemy_spawn_tl, PALETTE_ORANGE)
+        make_enemy(self.enemy_spawn_tl)
         make_enemy(self.enemy_spawn_t, PALETTE_GREEN)
         make_enemy(self.enemy_spawn_tr, PALETTE_BLUE)
       elseif self.stage == 12 then
         make_enemy(self.enemy_spawn_l, PALETTE_BLUE)
         make_enemy(self.enemy_spawn_r, PALETTE_GREEN)
-        make_enemy(self.enemy_spawn_t, PALETTE_ORANGE)
+        make_enemy(self.enemy_spawn_t)
       elseif self.stage == 17 then
-        make_enemy(self.enemy_spawn_t, PALETTE_ORANGE)
+        make_enemy(self.enemy_spawn_t)
       elseif self.stage == 18 then
         make_enemy(self.enemy_spawn_bl, PALETTE_BLUE)
       elseif self.stage == 19 then
         make_enemy(self.enemy_spawn_br, PALETTE_GREEN)
-      elseif self.stage == 23 then
-        make_enemy(self.enemy_spawn_bl, PALETTE_BLUE)
       elseif self.stage == 24 then
+        make_enemy(self.enemy_spawn_bl, PALETTE_BLUE)
         make_enemy(self.enemy_spawn_br, PALETTE_GREEN)
-      elseif self.stage == 25 then
-        make_enemy(self.enemy_spawn_t, PALETTE_ORANGE)
-      elseif self.stage == 31 then
-        red_enemy = make_enemy(self.enemy_spawn_bl, PALETTE_RED)
+        make_enemy(self.enemy_spawn_t)
+      elseif self.stage == 26 then
+        red_enemy = make_enemy(self.enemy_spawn_t, PALETTE_RED)
         red_enemy.max_speed = 0.75
       end
     elseif self.level == 5 then
@@ -652,7 +630,7 @@ function make_level_manager()
         sfx(SFX_TALK)
       end
     elseif self.level == self.final_level then
-      bby1=make_bby({2, 14}, PALETTE_ORANGE)
+      bby1=make_bby({2, 14})
       bby1.wanderer.active = false
       bby2=make_bby({6, 14}, PALETTE_GREEN)
       bby2.wanderer.active = false
@@ -802,7 +780,7 @@ function make_level_manager()
     end
 
     local bar_length = bar_length
-    if bar_length ~= nil then
+    if bar_length then
       -- bar_length should be between 0.0 and 1.0
       local bar_length = max(0.0, bar_length or 1.0)
     end
@@ -812,7 +790,7 @@ function make_level_manager()
     local bg_color = 6
 
     -- PALETTE_GREY IS DEFAULT 
-    if (palette != nil) then
+    if (palette) then
       if palette == PALETTE_ORANGE then
         bg_color = 9
       elseif palette == PALETTE_GREEN then
@@ -966,7 +944,7 @@ function make_player(pos)
     for _, bby in pairs(bbys) do
       if self.collider:is_colliding(bby) then
 
-        if bby.current_item ~= nil and bby.current_item.sprite == 88 then
+        if bby.current_item and bby.current_item.sprite == 88 then
           -- Run faster when we're touching a baby with pants on
           self.max_speed = self.max_speed_collision_modifier
           touching_bby_with_pants = true
@@ -1339,7 +1317,7 @@ function make_rocks(rocks_tile_pos)
 
   rocks.rocks = {}
 
-  if rocks_tile_pos ~= nil then
+  if rocks_tile_pos then
     for _, pos in pairs(rocks_tile_pos) do
       make_rock(pos)
     end
@@ -1457,13 +1435,11 @@ function make_bby(pos, palette)
   -- Configurations
   bby.max_speed = 0.5
 
-  bby.name = BBY_NAMES[flr(rnd(BBY_NAMES_LENGTH)) + 1]
+  bby.name = BBY_NAMES[flr(rnd(#BBY_NAMES)) + 1]
   bby.pos = tile_to_pixel_pos(pos or {8,8})
   bby.v = {0, 0}
   bby.sprite = 40
   bby.active = true
-
-  bby.bandana_damage_dealt = 0.2
 
   bby.push_index = 0
   bby.is_pushed_by_bby = false
@@ -1477,7 +1453,7 @@ function make_bby(pos, palette)
     bby, 
     0.3,
     64, 
-    palette or UNLOCKED_PALETTES[flr(rnd(#UNLOCKED_PALETTES)) + 1])
+    palette or PALETTE_ORANGE)
   bby.collider = make_collider(
     bby,
     8,
@@ -1625,8 +1601,8 @@ function make_bby(pos, palette)
         self.health:damage(enemy.damage_dealt)
 
         -- Do damage to enemy if we're wearing the bandana
-        if self.current_item ~= nil and self.current_item.sprite == 87 then
-          enemy.health:damage(self.bandana_damage_dealt)
+        if self.current_item and self.current_item.sprite == 87 then
+          enemy.health:damage(0.2)
         end
       end
     end
@@ -1705,13 +1681,9 @@ function make_boss1(pos)
   -- Configurations
   boss1.max_speed = 0.2
 
-  boss1.name = "SHARON"
   boss1.pos = pos
   boss1.sprite = 47
   boss1.active = true
-  boss1.damage_dealt = 0.065
-
-  boss1.default_speed = boss1.max_speed
 
   -- Components
   boss1.speech_do_for = make_do_for(
@@ -1825,7 +1797,7 @@ function make_enemies(enemies_pos)
 
   enemies.enemies = {}
  
-  if enemies_pos ~= nil then
+  if enemies_pos then
     for _, pos in pairs(enemies_pos) do
       make_enemy(pos)
     end
@@ -1853,7 +1825,7 @@ function make_enemy(pos, palette)
     enemy, 
     0.3,
     1, 
-    palette or UNLOCKED_PALETTES[flr(rnd(#UNLOCKED_PALETTES)) + 1],
+    palette or PALETTE_ORANGE,
     true
   )
   enemy.collider = make_collider(
@@ -1881,12 +1853,12 @@ function make_enemy(pos, palette)
     local new_target = nil
     for _, bby in pairs(bbys) do
       if bby.active then
-        local bby_is_wearing_mask = bby.current_item ~= nil and bby.current_item.sprite == 91
+        local bby_is_wearing_mask = bby.current_item and bby.current_item.sprite == 91
         if bby.animator.palette == enemy.animator.palette and not bby_is_wearing_mask then
           -- Prioritize same color, deprioritize mask.
           new_target = bby
         end
-        if bby.current_item ~= nil and bby.current_item.sprite == 72 then
+        if bby.current_item and bby.current_item.sprite == 72 then
           -- Prioritize bbys wearing the wig
           new_target = bby
           break
@@ -1935,7 +1907,7 @@ function make_enemy(pos, palette)
     -- Slow us down if a bby is wearing sunglasses
     self.max_speed = self.default_speed
     for _, bby in pairs(bbys) do
-      if bby.active and bby.current_item ~= nil and bby.current_item.sprite == 86 then
+      if bby.active and bby.current_item and bby.current_item.sprite == 86 then
         self.max_speed = self.sunglasses_speed_modifier
         break
       end
@@ -1960,21 +1932,21 @@ function make_follower(parent, target, follow_speed, closest_distance, find_targ
   follower.find_target_fn = find_target_fn  -- Optional function to find a target. Also called if target becomes inactive
 
   -- Find a target if we have a function but no starting target
-  if follower.find_target_fn ~= nil and follower.target == nil then
+  if follower.find_target_fn and follower.target == nil then
     follower.target = follower.find_target_fn(follower.parent)
   end
 
   follower.update = function(self)
-    if self.find_target_fn ~= nil and (self.target == nil or (self.target ~= nil and not self.target.active)) then
+    if self.find_target_fn and (self.target == nil or (self.target and not self.target.active)) then
       -- If our target is inactive or nil, find a new one
       self.target = self.find_target_fn(self.parent)
     end
 
-    if self.target ~= nil then
+    if self.target then
       local speed = self.follow_speed or self.parent.max_speed
       local difference = v_subtraction(self.target.pos, self.parent.pos)
 
-      if self.closest_distance ~= nil then
+      if self.closest_distance then
         local distance = sqrt(difference[1]^2 + difference[2]^2)
         if distance < self.closest_distance then 
           self.parent.v = {0, 0}
@@ -1986,7 +1958,7 @@ function make_follower(parent, target, follow_speed, closest_distance, find_targ
       local v = v_scalar_multiplication(normalized, speed)
 
       self.parent.v = v
-    elseif self.find_target_fn ~= nil then
+    elseif self.find_target_fn then
       -- We've lost a target. Try to find one.
       self.find_target_fn(self.parent)
     end
@@ -2237,10 +2209,10 @@ function make_health(parent,
   health.auto_dps_active = true
 
   health.update = function(self)
-    if self.cooldown_duration ~= nil then
+    if self.cooldown_duration then
       self.time_since_last_damage += DELTA_TIME
     end
-    if self.auto_damage_per_second ~= nil and self.auto_dps_active then
+    if self.auto_damage_per_second and self.auto_dps_active then
       -- Hurt ourselves every second
       self.time_since_last_autodamage += DELTA_TIME
       if (self.time_since_last_autodamage > 1.0) then
@@ -2255,17 +2227,17 @@ function make_health(parent,
       self.health -= damage
       self.time_since_last_damage = 0
 
-      if self.damage_sfx ~= nil and play_sfx ~= false then
+      if self.damage_sfx and play_sfx ~= false then
         -- Play damaged audio
         sfx(self.damage_sfx)
       end
 
-      if low_health_sprite ~= nil and self.health < self.low_health_amount then
+      if low_health_sprite and self.health < self.low_health_amount then
         -- Update the sprite when health is low
         self.parent.sprite = self.low_health_sprite
       end
 
-      if self.health <= 0.0 and self.death_callback_fn ~= nil then
+      if self.health <= 0.0 and self.death_callback_fn then
         -- Do death callback function when dead
         self.death_callback_fn(self.parent)
       end
@@ -2297,10 +2269,10 @@ function make_do_for(parent, duration, callback_fn, expired_fn)
   do_for.update = function(self)
     if self.time_left > 0 then
       self.time_left -= DELTA_TIME
-      if self.callback_fn ~= nil then
+      if self.callback_fn then
         self.callback_fn(self.parent)
       end
-    elseif not self.has_expired and self.expired_fn ~= nil then
+    elseif not self.has_expired and self.expired_fn then
       self.has_expired = true
       self.expired_fn(self.parent)
     end
@@ -2382,10 +2354,6 @@ function v_subtraction(v1, v2)
   return {v1[1] - v2[1], v1[2] - v2[2]}
 end
 
-function v_scalar_division(v, scalar)
-  return {v[1] / scalar, v[2] / scalar}
-end
-
 function v_scalar_multiplication(v, scalar)
   return {v[1] * scalar, v[2] * scalar}
 end
@@ -2395,11 +2363,8 @@ function v_magnitude(v)
 end
 
 function v_normalized(v)
-  return v_scalar_division(v, v_magnitude(v))
-end
-
-function v_in_rect(v, left, top, right, bottom)
-  return top < v[2] and v[2] < bottom and left < v[1] and v[1] < right
+  local m = v_magnitude(v)
+  return {v[1] / m, v[2] / m}
 end
 
 function lines_overlapping(min1, max1, min2, max2)
@@ -2425,7 +2390,6 @@ function rects_are_colliding(r1, r2)
 
   return horizontal_collision and vertical_collision
 end
-
 
 -- Utility functions
 function sort_table_by_pos(a, pos_index)
