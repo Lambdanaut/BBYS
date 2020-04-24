@@ -37,8 +37,6 @@ BOTTOM_COLLISION = 1
 LEFT_COLLISION = 2
 RIGHT_COLLISION = 3
 
-TILE_UNWALKABLE = 0
-
 SFX_UNDEFINED = 0
 SFX_CONSUME_FOOD = 1
 SFX_CONSUME_ITEM = 2
@@ -252,22 +250,16 @@ function tile_has_flag(x, y, flag)
   return has_flag
 end
 
-function can_move(pos)
-  tile_coord = pixel_to_tile_pos(pos)
-  return not tile_has_flag(tile_coord[1], tile_coord[2], TILE_UNWALKABLE)
-end
-
 -- Level manager code
 function make_level_manager()
   level_manager = {}
 
-  level_manager.level = 5
+  level_manager.level = 1
   level_manager.stage = 1  -- The progression of the current level
   level_manager.stage_duration = 5
-  level_manager.final_level = 6
 
   -- Number of stages for each level, listed sequentially
-  level_manager.stage_count = {24, 27, 40, 9999, 9}
+  level_manager.stage_count = {24, 27, 40, 9999, 10, 20}
   level_manager.map_bounds = {x=8, y=8, w=120, h=120}  -- Rect of map bounds
 
   level_manager.enemy_spawn_tl = {0, 0}
@@ -284,6 +276,9 @@ function make_level_manager()
   level_manager.time_since_last_stage = 0
 
   level_manager.map_palette = nil
+  level_manager.bby1name = nil
+  level_manager.bby2name = nil
+  level_manager.bby3name = nil
 
   -- Components
 
@@ -303,7 +298,6 @@ function make_level_manager()
     make_enemies()
     make_rocks()
     make_projectiles()
-    make_boss1({68, 24})
 
     self.stage = 1
   end
@@ -331,7 +325,12 @@ function make_level_manager()
 
         self:draw_ui_msg("HI THERE 🅾️O🅾️  ")
         sfx(SFX_TALK)
-        make_bby({8, 6})
+        bby1 = make_bby({8, 6})
+        if self.bby1name then
+          bby1.name = self.bby1name
+        else
+          self.bby1name = bby1.name
+        end
       elseif self.stage == 2 then
         self:draw_ui_msg("THIS IS UR BBY! 🅾️U🅾️  ")
         sfx(SFX_TALK)
@@ -372,7 +371,10 @@ function make_level_manager()
         }
         make_rocks(rock_pos)
 
-        make_bby({8, 6})
+        bby1 = make_bby({8, 6})
+        if self.bby1name then
+          bby1.name = self.bby1name
+        end
         self:draw_ui_msg("HEWWO! ^o^ SO SRY 2 SEE...")
         sfx(SFX_TALK)
       elseif self.stage == 2 then
@@ -382,7 +384,12 @@ function make_level_manager()
         self:draw_ui_msg("WUT ❎∧🅾️ UR BBY ALIVE?   ")
         sfx(SFX_TALK)
       elseif self.stage == 4 then
-        make_bby({8, 7}, PALETTE_GREEN)
+        bby2 = make_bby({8, 7}, PALETTE_GREEN)
+        if self.bby2name then
+          bby2.name = self.bby2name
+        else
+          self.bby2name = bby2.name
+        end
         self:draw_ui_msg("WELL.. I GIVE U MORE BBY")
         sfx(SFX_TALK)
       elseif self.stage == 5 then
@@ -594,7 +601,7 @@ function make_level_manager()
             0, 0, 144, 144,
             7)
         end
-        boss1.animator.palette = PALETTE_GREY
+        make_boss1({68, 24})
         player.collide_with_boss1 = false
         self.effect_do_for:start()
       elseif self.stage == 3 then
@@ -604,7 +611,7 @@ function make_level_manager()
         self:draw_ui_msg("...MY HEART...")
         sfx(SFX_TALK)
       elseif self.stage == 5 then
-        self:draw_ui_msg("...YOU HEALED ME...")
+        self:draw_ui_msg("...U HEALED ME...")
         boss1.speech_do_for:start()
         sfx(SFX_TALK)
       elseif self.stage == 6 then
@@ -615,29 +622,57 @@ function make_level_manager()
         self:draw_ui_msg("SRY 4 BEIN SUCH A LIL SH*T")
         boss1.speech_do_for:start()
         sfx(SFX_TALK)
-      elseif self.stage == 8 then
+      elseif self.stage == 9 then
         self:draw_ui_msg("U KNO I THNK ITS TIME WE...")
         boss1.speech_do_for:start()
         sfx(SFX_TALK)
-      elseif self.stage == 9 then
+      elseif self.stage == 10 then
         self:draw_ui_msg("ROLL TEH CREDDO'S! ")
         boss1.speech_do_for:start()
         sfx(SFX_TALK)
       end
-    elseif self.level == self.final_level then
-      self.effect_do_for.callback_fn = function(l)
-        rectfill(0, 0, 144, 144, 0)
+    elseif self.level == 6 then
+      if self.stage == 1 then
+        bby1=make_bby({8, 0}, PALETTE_GREY)
+        bby1.wanderer.active = false
+        bby1.name = 'SHARON'
+        bby1.follower = make_follower(
+          bby1,
+          player,
+          0.7,
+          10 
+        ) 
+      elseif self.stage == 2 then
+        bby2=make_bby({8, 0}, PALETTE_BLUE)
+        bby2.wanderer.active = false
+        bby2.name = '-'
+        bby2.follower = make_follower(
+          bby2,
+          bby1,
+          0.7,
+          10 
+        ) 
+      elseif self.stage == 3 then
+        bby3=make_bby({8, 0}, PALETTE_GREEN)
+        bby3.wanderer.active = false
+        bby3.name = '-'
+        bby3.follower = make_follower(
+          bby3,
+          bby2,
+          0.7,
+          10 
+        ) 
+      elseif self.stage == 4 then
+        bby4=make_bby({8, 0})
+        bby4.wanderer.active = false
+        bby4.name = '-'
+        bby4.follower = make_follower(
+          bby4,
+          bby3,
+          0.7,
+          10 
+        ) 
       end
-
-      bby1=make_bby({2, 14})
-      bby1.wanderer.active = false
-      bby2=make_bby({6, 14}, PALETTE_GREEN)
-      bby2.wanderer.active = false
-      bby3=make_bby({10, 14}, PALETTE_BLUE)
-      bby3.wanderer.active = false
-      bby4=make_bby({14, 14}, PALETTE_GREY)
-      bby4.wanderer.active = false
-      bby4.name = 'SHARON'
     end
   end
 
@@ -660,7 +695,7 @@ function make_level_manager()
     rocks.rocks = {}
     enemies.enemies = {}
     bbys = {}
-
+    boss1 = nil
   end
 
   level_manager.draw_stage_ui = function(self)
@@ -680,39 +715,32 @@ function make_level_manager()
       DISPLAY_NAMEBAR_UI = not DISPLAY_NAMEBAR_UI
     end
 
-    if self.level < self.final_level then
+    -- Keep player and bbys in map bounds
+    self:keep_in_map_bounds()
 
-      -- Keep player and bbys in map bounds
-      self:keep_in_map_bounds()
+    if self.time_since_last_stage > self.stage_duration then
+      -- Next stage
+      self.time_since_last_stage = 0
+      self.stage += 1
+      self:init_stage()
+    end
 
-      if self.time_since_last_stage > self.stage_duration then
-        -- Next stage
-        self.time_since_last_stage = 0
-        self.stage += 1
-        self:init_stage()
-      end
-
-      if self.stage > self.stage_count[self.level] then
-        -- Next level
-        self.time_since_last_stage = 0
-        self.level += 1
-        self:destroy_level()
-        self:init_level()
-        self:init_stage()
-      end
+    if self.stage > self.stage_count[self.level] then
+      -- Next level
+      self.time_since_last_stage = 0
+      self.level += 1
+      self:destroy_level()
+      self:init_level()
+      self:init_stage()
     end
 
   end
 
   level_manager.draw = function(self)
     set_palette(self.map_palette)
-    self:draw_map() 
-    reset_palette()
-  end
-
-  level_manager.draw_map = function(self)
     camera(8, 8)
     map(0, 0, 0, 0, 18, 18)
+    reset_palette()
   end
 
   level_manager.keep_in_map_bounds = function(self)
@@ -725,9 +753,11 @@ function make_level_manager()
     end
 
     -- Keep bbys in map bounds
-    for _, bby in pairs(bbys) do
-      if self:keep_object_in_map_bounds(bby, 8) then
-        bby.is_colliding_with_unwalkable = true
+    if self.level ~= 6 then
+      for _, bby in pairs(bbys) do
+        if self:keep_object_in_map_bounds(bby, 8) then
+          bby.is_colliding_with_unwalkable = true
+        end
       end
     end
   end
@@ -923,7 +953,6 @@ function make_player(pos)
 		if (btn(⬇️)) then y_change = self.max_speed end
 
     if (x_change != 0 or y_change != 0) then
-  		-- if can_move({new_x,  new_y}) then
         did_move = true
         self.v = {x_change, y_change}
   		-- else
@@ -1490,6 +1519,7 @@ function make_bby(pos, palette)
       self:collide()
       self.collider:update()
       self.health:update()
+      if self.follower then self.follower:update() end
     end
   end
 
@@ -1505,9 +1535,7 @@ function make_bby(pos, palette)
 
   bby.move = function(self)
     new_pos = v_add(self.pos, self.v)
-    if can_move(new_pos) then
-      self.pos = new_pos
-    end
+    self.pos = new_pos
     if (self.v[1] != 0 or self.v[2] != 0) then
       self.animator.animation_flag = true
     else
