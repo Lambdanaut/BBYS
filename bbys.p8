@@ -282,13 +282,13 @@ end
 function make_level_manager()
   level_manager = {}
 
-  level_manager.level = 4
+  level_manager.level = 5
   level_manager.stage = 1  -- The progression of the current level
   level_manager.stage_duration = 5
   level_manager.final_level = 6
 
   -- Number of stages for each level, listed sequentially
-  level_manager.stage_count = {24, 27, 40, 9999, 10}
+  level_manager.stage_count = {24, 27, 40, 9999, 9}
   level_manager.map_bounds = {x=1*8, y=1*8, w=15*8, h=15*8}  -- Rect of map bounds
 
   level_manager.enemy_spawn_tl = {0, 0}
@@ -615,6 +615,7 @@ function make_level_manager()
             0, 0, 9*16, 9*16,
             7)
         boss1.animator.palette = PALETTE_GREY
+        player.collide_with_boss1 = false
         end
         self.effect_do_for:start()
       elseif self.stage == 3 then
@@ -624,11 +625,31 @@ function make_level_manager()
         self:draw_ui_msg("...MY HEART...")
         sfx(SFX_TALK)
       elseif self.stage == 5 then
-        self:draw_ui_msg("...YOU'VE SAVED ME...")
+        self:draw_ui_msg("...YOU HEALED ME...")
+        boss1.speech_do_for:start()
+        sfx(SFX_TALK)
+      elseif self.stage == 6 then
+        self:draw_ui_msg("TY U DA BESS")
+        boss1.speech_do_for:start()
+        sfx(SFX_TALK)
+      elseif self.stage == 7 then
+        self:draw_ui_msg("SRY 4 BEIN SUCH A LIL SH*T")
+        boss1.speech_do_for:start()
+        sfx(SFX_TALK)
+      elseif self.stage == 8 then
+        self:draw_ui_msg("U KNO I THNK ITS TIME WE...")
+        boss1.speech_do_for:start()
+        sfx(SFX_TALK)
+      elseif self.stage == 9 then
+        self:draw_ui_msg("ROLL TEH CREDDO'S! ")
+        boss1.speech_do_for:start()
         sfx(SFX_TALK)
       end
     elseif self.level == self.final_level then
-      self.map_palette = PALETTE_ORANGE
+      self.effect_do_for.callback_fn = function(l)
+        rectfill(0, 0, 9*16, 9*16, 0)
+      end
+
       bby1=make_bby({2, 14})
       bby1.wanderer.active = false
       bby2=make_bby({6, 14}, PALETTE_GREEN)
@@ -637,6 +658,7 @@ function make_level_manager()
       bby3.wanderer.active = false
       bby4=make_bby({14, 14}, PALETTE_GREY)
       bby4.wanderer.active = false
+      bby4.name = SHARON
     end
   end
 
@@ -873,6 +895,7 @@ function make_player(pos)
   player.v = {0, 0}
   player.active = true
   player.movement_enabled = true
+  player.collide_with_boss1 = true
 
   player.max_speed_collision_modifier = 2.0  -- Amount to set max_speed to when colliding with a bby with pants
   player.default_speed = player.max_speed
@@ -1004,7 +1027,9 @@ function make_player(pos)
         sfx(SFX_PLAYER_DAMAGED)
         self.blink_do_for:start()
       end
-      self.collider:collide_rb(boss1, collide_boss1_cb, 7)
+      if self.collide_with_boss1 then
+        self.collider:collide_rb(boss1, collide_boss1_cb, 7)
+      end
     end
 
     -- Projectiles collision
