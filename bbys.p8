@@ -61,6 +61,17 @@ MUSIC_HELL = 20
 
 MUSIC_BITMASK = 3
 
+
+SPAWN_TL = {0, 0}
+SPAWN_T = {8, 0}
+SPAWN_TR = {17, 0}
+SPAWN_R = {17, 8}
+SPAWN_BR = {17, 17}
+SPAWN_B = {8, 17}
+SPAWN_BL = {0, 17}
+SPAWN_L = {0, 8}
+
+
 -- Globals
 IN_SPLASH_SCREEN = true
 IN_PLAYER_LOST_SCREEN = false
@@ -89,11 +100,11 @@ function _update()
 
     local to_update = {player}
     merge_tables(to_update, bbys)
-    merge_tables(to_update, enemies.enemies)
-    merge_tables(to_update, rocks.rocks)
-    merge_tables(to_update, items.items)
-    merge_tables(to_update, foods.foods)
-    merge_tables(to_update, projectiles.projectiles)
+    merge_tables(to_update, enemies)
+    merge_tables(to_update, rocks)
+    merge_tables(to_update, items)
+    merge_tables(to_update, foods)
+    merge_tables(to_update, projectiles)
     if boss1 then add(to_update, boss1) end
     if heart then add(to_update, heart) end
 
@@ -118,33 +129,20 @@ function _draw()
 
     -- Draw the rocks
     set_palette(level_manager.map_palette)
-    for _, rock in pairs(rocks.rocks) do 
+    for _, rock in pairs(rocks) do 
       rock:draw() 
     end
     reset_palette()
 
-    -- Draw the foods
-    for _, food in pairs(foods.foods) do 
-      food:draw() 
-    end
-
-    -- Draw the items
-    for _, item in pairs(items.items) do 
-      item:draw() 
-    end
-
-    -- Draw the projectiles
-    for _, projectile in pairs(projectiles.projectiles) do 
-      projectile:draw()
-    end
-
     -- Table of character to draw in order of y axis
-    local draw_table = {}
-    draw_table[1] = player
+    local draw_table = {player}
     if boss1 then draw_table[2] = boss1 end
     if heart then draw_table[3] = heart end
     merge_tables(draw_table, bbys)
-    merge_tables(draw_table, enemies.enemies)
+    merge_tables(draw_table, enemies)
+    merge_tables(draw_table, foods)
+    merge_tables(draw_table, items)
+    merge_tables(draw_table, projectiles)
     sort_table_by_pos(draw_table, 2)
 
     for _, character in pairs(draw_table) do 
@@ -259,26 +257,14 @@ function make_level_manager()
   level_manager.stage_duration = 5
 
   -- Number of stages for each level, listed sequentially
-  level_manager.stage_count = {24, 27, 40, 9999, 10, 20}
+  level_manager.stage_count = {24, 28, 41, 9999, 10, 20}
   level_manager.map_bounds = {x=8, y=8, w=120, h=120}  -- Rect of map bounds
-
-  level_manager.enemy_spawn_tl = {0, 0}
-  level_manager.enemy_spawn_t = {8, 0}
-  level_manager.enemy_spawn_tr = {17, 0}
-  level_manager.enemy_spawn_r = {17, 8}
-  level_manager.enemy_spawn_br = {17, 17}
-  level_manager.enemy_spawn_b = {8, 17}
-  level_manager.enemy_spawn_bl = {0, 17}
-  level_manager.enemy_spawn_l = {0, 8}
 
   level_manager.message_pos = tile_to_pixel_pos({8.5, 2})  -- position on screen to display dialogue messages at
 
   level_manager.time_since_last_stage = 0
 
   level_manager.map_palette = nil
-  level_manager.bby1name = nil
-  level_manager.bby2name = nil
-  level_manager.bby3name = nil
 
   -- Components
 
@@ -303,16 +289,10 @@ function make_level_manager()
   end
 
   level_manager.init_stage = function(self)
-    if DEBUG then
-      return
-    end
-
-    if self.stage == 20 and self.level < 4then
+    if self.stage == 18 and self.level < 4 then
       -- Replay the music if it's stopped
       music(MUSIC_LVL1, 0, MUSIC_BITMASK)
-    end
-
-    if DEBUG then return end
+    end 
 
     -- Called once each time a new stage is entered
     if self.level == 1 then
@@ -326,10 +306,10 @@ function make_level_manager()
         self:draw_ui_msg("HI THERE 🅾️O🅾️  ")
         sfx(SFX_TALK)
         bby1 = make_bby({8, 6})
-        if self.bby1name then
-          bby1.name = self.bby1name
+        if BBY1NAME then
+          bby1.name = BBY1NAME
         else
-          self.bby1name = bby1.name
+          BBY1NAME = bby1.name
         end
       elseif self.stage == 2 then
         self:draw_ui_msg("THIS IS UR BBY! 🅾️U🅾️  ")
@@ -346,20 +326,20 @@ function make_level_manager()
       elseif self.stage == 6 then
         self:draw_ui_msg("SAVE HER FROM BEIN FOOD ❎~❎  ")
         sfx(SFX_TALK)
-        make_enemy(self.enemy_spawn_b)
+        make_enemy(SPAWN_B)
       elseif self.stage == 9 then
-        make_enemy(self.enemy_spawn_b)
-        make_enemy(self.enemy_spawn_b)
+        make_enemy(SPAWN_B)
       elseif self.stage == 12 then
-        make_enemy(self.enemy_spawn_l)
-        make_enemy(self.enemy_spawn_r)
+        make_enemy(SPAWN_L)
+      elseif self.stage == 13 then
+        make_enemy(SPAWN_R)
       elseif self.stage == 15 then
-        make_enemy(self.enemy_spawn_r)
+        make_enemy(SPAWN_R)
       elseif self.stage == 19 then
-        make_enemy(self.enemy_spawn_t)
-        make_enemy(self.enemy_spawn_b)
-        make_enemy(self.enemy_spawn_l)
-        make_enemy(self.enemy_spawn_r)
+        make_enemy(SPAWN_T)
+        make_enemy(SPAWN_B)
+        make_enemy(SPAWN_L)
+        make_enemy(SPAWN_R)
       end
     elseif self.level == 2 then
       if self.stage == 1 then
@@ -372,8 +352,8 @@ function make_level_manager()
         make_rocks(rock_pos)
 
         bby1 = make_bby({8, 6})
-        if self.bby1name then
-          bby1.name = self.bby1name
+        if BBY1NAME then
+          bby1.name = BBY1NAME
         end
         self:draw_ui_msg("HEWWO! ^o^ SO SRY 2 SEE...")
         sfx(SFX_TALK)
@@ -385,10 +365,10 @@ function make_level_manager()
         sfx(SFX_TALK)
       elseif self.stage == 4 then
         bby2 = make_bby({8, 7}, PALETTE_GREEN)
-        if self.bby2name then
-          bby2.name = self.bby2name
+        if BBY2NAME then
+          bby2.name = BBY2NAME
         else
-          self.bby2name = bby2.name
+          BBY2NAME = bby2.name
         end
         self:draw_ui_msg("WELL.. I GIVE U MORE BBY")
         sfx(SFX_TALK)
@@ -396,37 +376,46 @@ function make_level_manager()
         self:draw_ui_msg("GOOD LUCK. >->")
         sfx(SFX_TALK)
       elseif self.stage == 6 then
-        make_enemy(self.enemy_spawn_b, PALETTE_GREEN)
+        make_enemy(SPAWN_B, PALETTE_GREEN)
       elseif self.stage == 10 then
         -- Enemies go only after new bby
-        make_enemy(self.enemy_spawn_l, PALETTE_GREEN)
+        make_enemy(SPAWN_L, PALETTE_GREEN)
       elseif self.stage == 15 then
-        -- Two more enemies from the same location go after other bby
-        make_enemy(self.enemy_spawn_t)
-        make_enemy(self.enemy_spawn_r)
-      elseif self.stage == 19 then
-        make_enemy(self.enemy_spawn_t, PALETTE_GREEN)
+        make_enemy(SPAWN_T)
+      elseif self.stage == 16 then
+        make_enemy(SPAWN_R)
       elseif self.stage == 20 then
-        make_enemy(self.enemy_spawn_b, PALETTE_GREEN)
+        make_enemy(SPAWN_T, PALETTE_GREEN)
       elseif self.stage == 21 then
-        make_enemy(self.enemy_spawn_r)
+        make_enemy(SPAWN_B, PALETTE_GREEN)
       elseif self.stage == 22 then
-        make_enemy(self.enemy_spawn_l, PALETTE_GREEN)
+        make_enemy(SPAWN_R)
+      elseif self.stage == 23 then
+        make_enemy(SPAWN_L, PALETTE_GREEN)
       end
     elseif self.level == 3 then
       if self.stage == 1 then
         self.map_palette = PALETTE_BLUE
-        local rock_pos = {
-          {3, 4}, {5, 4}, {7, 4}, {9, 4}, {11, 4}, {13, 4},
-          {4, 3}, {4, 5}, {4, 7}, {4, 9}, {4, 11}, {4, 13},
-          {13, 14}, {13, 12}, {13, 10}, {13, 8}, {13, 6},
-          {6, 13}, {8, 13}, {10, 13}, {12, 13}, {14, 13},
-        }
+        local rock_pos = {}
+        for x = 2, 15 do
+          if (x % 3 == 1) then
+            add(rock_pos, {x, 4})
+            add(rock_pos, {x, 6})
+            add(rock_pos, {x, 11})
+            add(rock_pos, {x, 13})
+          end
+        end
         make_rocks(rock_pos)
         self:draw_ui_msg("...")
         sfx(SFX_TALK)
-        make_bby({8, 6})
-        make_bby({8, 7}, PALETTE_GREEN)
+        bby1 = make_bby({8, 7})
+        if BBY1NAME then
+          bby1.name = BBY1NAME
+        end
+        bby2 = make_bby({8, 9}, PALETTE_GREEN)
+        if BBY2NAME then
+          bby2.name = BBY2NAME
+        end
       elseif self.stage == 2 then
         self:draw_ui_msg("XCUSE ME 🅾️_🅾️  ")
         sfx(SFX_TALK)
@@ -439,17 +428,22 @@ function make_level_manager()
       elseif self.stage == 5 then
         self:draw_ui_msg("TAKE THIS ONE THEN")
         sfx(SFX_TALK)
-        make_bby({8, 7}, PALETTE_BLUE)
+        bby3 = make_bby({8, 8}, PALETTE_BLUE)
+        if BBY3NAME then
+          bby3.name = BBY3NAME
+        else
+          BBY3NAME = bby3.name
+        end
       elseif self.stage == 7 then
-        make_enemy(self.enemy_spawn_bl, PALETTE_BLUE)
-      elseif self.stage == 8 then
-        make_enemy(self.enemy_spawn_br, PALETTE_BLUE)
+        make_enemy(SPAWN_BL, PALETTE_BLUE)
       elseif self.stage == 13 then
-        make_enemy(self.enemy_spawn_l, PALETTE_GREEN)
-        make_enemy(self.enemy_spawn_r)
+        make_enemy(SPAWN_BR, PALETTE_BLUE)
+      elseif self.stage == 14 then
+        make_enemy(SPAWN_R)
+      elseif self.stage == 16 then
+        make_enemy(SPAWN_L, PALETTE_GREEN)
       elseif self.stage == 17 then
-        make_enemy(self.enemy_spawn_tl, PALETTE_BLUE)
-        make_enemy(self.enemy_spawn_bl, PALETTE_GREEN)
+        make_enemy(SPAWN_BL, PALETTE_GREEN)
       elseif self.stage == 22 then
         self:draw_ui_msg("...")
         sfx(SFX_TALK)
@@ -475,16 +469,15 @@ function make_level_manager()
         self:draw_ui_msg("HERE COME THE MNSTERS ☉∧☉   ")
         sfx(SFX_TALK)
       elseif self.stage == 30 then
-        make_enemy(self.enemy_spawn_tl, PALETTE_BLUE)
-        make_enemy(self.enemy_spawn_tr, PALETTE_GREEN)
-        make_enemy(self.enemy_spawn_bl)
-        make_enemy(self.enemy_spawn_br, PALETTE_BLUE)
+        make_enemy(SPAWN_TR, PALETTE_GREEN)
       elseif self.stage == 31 then
-        make_enemy(self.enemy_spawn_t, PALETTE_BLUE)
+        make_enemy(SPAWN_T, PALETTE_BLUE)
       elseif self.stage == 32 then
-        make_enemy(self.enemy_spawn_b)
-      elseif self.stage == 33 then
-        make_enemy(self.enemy_spawn_b, PALETTE_GREEN)
+        make_enemy(SPAWN_B)
+      elseif self.stage == 34 then
+        make_enemy(SPAWN_BR, PALETTE_GREEN)
+      elseif self.stage == 35 then
+        make_enemy(SPAWN_L)
       end
     elseif self.level == 4 then
       if self.stage == 1 then
@@ -493,10 +486,11 @@ function make_level_manager()
         -- Make rocks
         local rock_pos = {}
         for x = 2, 15 do
-          add(rock_pos, {x, 5})
           if (x % 3 == 1) then
+            add(rock_pos, {x, 5})
             add(rock_pos, {x, 7})
             add(rock_pos, {x, 9})
+            add(rock_pos, {x, 11})
           end
         end
         make_rocks(rock_pos)
@@ -509,21 +503,22 @@ function make_level_manager()
         local bby2 = make_bby({8, 14}, PALETTE_GREEN)
         local bby3 = make_bby({10, 14}, PALETTE_BLUE)
         bby1.wanderer.active = false
+        if BBY1NAME then
+          bby1.name = BBY1NAME
+        end
         bby2.wanderer.active = false
+        if BBY2NAME then
+          bby2.name = BBY2NAME
+        end
         bby3.wanderer.active = false
+        if BBY3NAME then
+          bby3.name = BBY3NAME
+        end
         bby1.pos[1] += 4
         bby2.pos[1] += 4
         bby3.pos[1] += 4
         player.pos[1] += 4
         player.pos[2] += 24
-
-        -- Make bbys and rocks invulnerable
-        for _, rock in pairs(rocks.rocks) do
-          rock.health.active = false
-        end
-        for _, bby in pairs(bbys) do
-          bby.health.active = false
-        end
 
       elseif self.stage == 2 then
         self:draw_ui_msg("WE GOT OFF ON WRONG FOOT.")
@@ -555,39 +550,32 @@ function make_level_manager()
         for _, bby in pairs(bbys) do
           bby.wanderer.active = true
         end
-        -- Make bbys and rocks vulnerable
-        for _, rock in pairs(rocks.rocks) do
-          rock.health.active = true
-        end
-        for _, bby in pairs(bbys) do
-          bby.health.active = true
-        end
       elseif self.stage == 9 then
-        make_enemy(self.enemy_spawn_tl)
-        make_enemy(self.enemy_spawn_t, PALETTE_GREEN)
-        make_enemy(self.enemy_spawn_tr, PALETTE_BLUE)
+        make_enemy(SPAWN_TL)
+        make_enemy(SPAWN_T, PALETTE_GREEN)
+        make_enemy(SPAWN_TR, PALETTE_BLUE)
       elseif self.stage == 14 then
-        make_enemy(self.enemy_spawn_l, PALETTE_BLUE)
-        make_enemy(self.enemy_spawn_r, PALETTE_GREEN)
-        make_enemy(self.enemy_spawn_t)
+        make_enemy(SPAWN_L, PALETTE_BLUE)
+        make_enemy(SPAWN_R, PALETTE_GREEN)
+        make_enemy(SPAWN_T)
       elseif self.stage == 19 then
-        make_enemy(self.enemy_spawn_t)
+        make_enemy(SPAWN_T)
       elseif self.stage == 20 then
-        make_enemy(self.enemy_spawn_bl, PALETTE_BLUE)
+        make_enemy(SPAWN_BL, PALETTE_BLUE)
       elseif self.stage == 23 then
-        make_enemy(self.enemy_spawn_br, PALETTE_GREEN)
+        make_enemy(SPAWN_BR, PALETTE_GREEN)
       elseif self.stage == 26 then
-        make_enemy(self.enemy_spawn_bl, PALETTE_BLUE)
-        make_enemy(self.enemy_spawn_br, PALETTE_GREEN)
-        make_enemy(self.enemy_spawn_t)
+        make_enemy(SPAWN_BL, PALETTE_BLUE)
+        make_enemy(SPAWN_BR, PALETTE_GREEN)
+        make_enemy(SPAWN_T)
       elseif self.stage == 28 then
-        red_enemy = make_enemy(self.enemy_spawn_t, PALETTE_BLACK)
+        red_enemy = make_enemy(SPAWN_T, PALETTE_BLACK)
         red_enemy.default_speed = 0.35
         red_enemy.follower.target = bbys[1]
-      elseif self.stage > 34 then
-        make_enemy(self.enemy_spawn_t)
-        make_enemy(self.enemy_spawn_bl, PALETTE_BLUE)
-        make_enemy(self.enemy_spawn_br, PALETTE_GREEN)
+      elseif self.stage > 39 then
+        make_enemy(SPAWN_T)
+        make_enemy(SPAWN_BL, PALETTE_BLUE)
+        make_enemy(SPAWN_BR, PALETTE_GREEN)
       end
     elseif self.level == 5 then
       if self.stage == 1 then
@@ -633,43 +621,56 @@ function make_level_manager()
       end
     elseif self.level == 6 then
       if self.stage == 1 then
-        bby1=make_bby({8, 0}, PALETTE_GREY)
-        bby1.wanderer.active = false
-        bby1.name = 'SHARON'
-        bby1.follower = make_follower(
-          bby1,
+        self:draw_ui_msg("A GAME BY LAMBDANAUT")
+        self.map_palette = PALETTE_ORANGE
+        bby4=make_bby({8, 0}, PALETTE_GREY)
+        bby4.wanderer.active = false
+        bby4.health.active = false
+        bby4.name = "SHARON"
+        bby4.follower = make_follower(
+          bby4,
           player,
           0.7,
           10 
         ) 
+        DISPLAY_NAMEBAR_UI = true
       elseif self.stage == 2 then
-        bby2=make_bby({8, 0}, PALETTE_BLUE)
-        bby2.wanderer.active = false
-        bby2.name = '-'
-        bby2.follower = make_follower(
-          bby2,
-          bby1,
-          0.7,
+        bby3=make_bby({8, 0}, PALETTE_BLUE)
+        bby3.wanderer.active = false
+        bby3.health.active = false
+        if BBY3NAME then
+          bby3.name = BBY3NAME
+        end
+        bby3.follower = make_follower(
+          bby3,
+          bby4,
+          0.69,
           10 
         ) 
       elseif self.stage == 3 then
-        bby3=make_bby({8, 0}, PALETTE_GREEN)
-        bby3.wanderer.active = false
-        bby3.name = '-'
-        bby3.follower = make_follower(
-          bby3,
+        bby2=make_bby({8, 0}, PALETTE_GREEN)
+        bby2.wanderer.active = false
+        bby2.health.active = false
+        if BBY2NAME then
+          bby2.name = BBY2NAME
+        end
+        bby2.follower = make_follower(
           bby2,
-          0.7,
+          bby3,
+          0.68,
           10 
         ) 
       elseif self.stage == 4 then
-        bby4=make_bby({8, 0})
-        bby4.wanderer.active = false
-        bby4.name = '-'
-        bby4.follower = make_follower(
-          bby4,
-          bby3,
-          0.7,
+        bby1=make_bby({8, 0})
+        bby1.wanderer.active = false
+        bby1.health.active = false
+        if BBY1NAME then
+          bby1.name = BBY1NAME
+        end
+        bby1.follower = make_follower(
+          bby1,
+          bby2,
+          0.67,
           10 
         ) 
       end
@@ -690,10 +691,10 @@ function make_level_manager()
 
   level_manager.destroy_level = function(self)
     -- Reset all level components
-    items.items = {}
-    foods.foods = {}
-    rocks.rocks = {}
-    enemies.enemies = {}
+    items = {}
+    foods = {}
+    rocks = {}
+    enemies = {}
     bbys = {}
     boss1 = nil
   end
@@ -1045,7 +1046,7 @@ function make_player(pos)
       p.active = false
       sfx(SFX_PLAYER_DAMAGED)
     end
-    for _, p in pairs(projectiles.projectiles) do
+    for _, p in pairs(projectiles) do
       if self.collider:collide_rb(p, collide_projectile_cb, 3) then
         break
       end
@@ -1059,7 +1060,7 @@ function make_player(pos)
         has_damaged_rock = true
       end
     end
-    for _, rock in pairs(rocks.rocks) do
+    for _, rock in pairs(rocks) do
       self.collider:collide_rb(rock, collide_rock_cb)
     end
 
@@ -1067,9 +1068,6 @@ function make_player(pos)
 
   player.draw = function(self)
     self.animator:update()
-    if DEBUG then
-      self.collider:draw()
-    end
 	end
 
 end
@@ -1078,18 +1076,15 @@ end
 
 function make_items()
   items = {}
-
-  items.items = {}
- 
-  items.create_all_items_randomly = function(self)
-    -- Create all items on map in random positions. Some may be overlapping
-    for _, index in pairs(ITEM_INDEXES) do
-      item_pos_x = flr(rnd(MAP_SIZE_X - 2)) + 1
-      item_pos_y = flr(rnd(MAP_SIZE_Y - 2)) + 1
-      item = make_item(index, {item_pos_x*8, item_pos_y*8})
-      item.health.auto_dps_active = false
-    end
-  end
+  -- items.create_all_items_randomly = function(self)
+  --   -- Create all items on map in random positions. Some may be overlapping
+  --   for _, index in pairs(ITEM_INDEXES) do
+  --     item_pos_x = flr(rnd(MAP_SIZE_X - 2)) + 1
+  --     item_pos_y = flr(rnd(MAP_SIZE_Y - 2)) + 1
+  --     item = make_item(index, {item_pos_x*8, item_pos_y*8})
+  --     item.health.auto_dps_active = false
+  --   end
+  -- end
 end
 
 function make_item(sprite, pos)
@@ -1157,7 +1152,7 @@ function make_item(sprite, pos)
       draw_msg("FLOWER GENERATED FOOD")
     elseif s == 71 then
       -- Eye Patch
-      for _, enemy in pairs(enemies.enemies) do
+      for _, enemy in pairs(enemies) do
         if enemy.active then
           enemy.health:damage(1.0)
           break
@@ -1166,7 +1161,7 @@ function make_item(sprite, pos)
       draw_msg("EYEPATCH ASSASSINATED MONSTER")
     elseif s == 72 then
       -- Wig
-      for _, enemy in pairs(enemies.enemies) do
+      for _, enemy in pairs(enemies) do
         enemy.follower.target = nil
       end
       draw_msg("WIG ATTRACTS MONSTERS")
@@ -1226,7 +1221,7 @@ function make_item(sprite, pos)
       draw_msg("ANTENNAE TELEPORTS YOU")
     elseif s == 91 then
       -- Mask
-      for _, enemy in pairs(enemies.enemies) do
+      for _, enemy in pairs(enemies) do
         enemy.follower.target = nil
       end
       draw_msg("MASK HIDES FROM MONSTERS")
@@ -1250,7 +1245,7 @@ function make_item(sprite, pos)
       -- Eye Patch
     elseif s == 72 then
       -- Wig
-      for _, enemy in pairs(enemies.enemies) do
+      for _, enemy in pairs(enemies) do
         enemy.follower.target = nil
       end
     elseif s == 73 then
@@ -1265,8 +1260,8 @@ function make_item(sprite, pos)
       bby.health.auto_dps_active = true
     elseif s == 85 then
       -- Dress
-    elseif s == 86 then
       bby.heal_bbys_on_collision = false
+    elseif s == 86 then
       -- Sunglasses
     elseif s == 87 then
       -- Bandit bandana
@@ -1279,7 +1274,7 @@ function make_item(sprite, pos)
       -- Alien antlers
     elseif s == 91 then
       -- Mask
-      for _, enemy in pairs(enemies.enemies) do
+      for _, enemy in pairs(enemies) do
         enemy.follower.target = nil
       end
     elseif s == 92 then
@@ -1288,7 +1283,7 @@ function make_item(sprite, pos)
     end
   end
 
-  items.items[#items.items + 1] = item
+  items[#items + 1] = item
 
   return item
 
@@ -1301,8 +1296,6 @@ end
 
 function make_foods()
   foods = {}
-
-  foods.foods = {}
 end
 
 
@@ -1336,7 +1329,7 @@ function make_food(pos, sprite)
     end
   end
 
-  foods.foods[#foods.foods + 1] = food
+  foods[#foods + 1] = food
 
   return food
 end
@@ -1347,7 +1340,7 @@ function make_rocks(rocks_tile_pos)
   -- Takes as input a table of rock tile positions (pixel pos divided by 8)
   rocks = {}
 
-  rocks.rocks = {}
+  rocks = {}
 
   if rocks_tile_pos then
     for _, pos in pairs(rocks_tile_pos) do
@@ -1399,7 +1392,7 @@ function make_rock(pos)
     self.health:update()
   end
 
-  rocks.rocks[#rocks.rocks + 1] = rock
+  rocks[#rocks + 1] = rock
 
   return rock
 end
@@ -1442,7 +1435,7 @@ function make_heart(pos)
       self.active = false
       level_manager:init_winning_scene()      
     end
-    for _, rock in pairs(rocks.rocks) do
+    for _, rock in pairs(rocks) do
       self.collider:collide_rb(rock)
     end
   end
@@ -1502,7 +1495,7 @@ function make_bby(pos, palette)
     1.0, -- Max health
     SFX_BBY_DAMAGED, -- Damage sfx to play
     0.5, -- Cooldown duration
-    0.013, -- Auto damage taken per second
+    0.012, -- Auto damage taken per second
     death_callback_fn  -- Callback function to call on death
   )
   bby.wanderer = make_wanderer(
@@ -1528,7 +1521,6 @@ function make_bby(pos, palette)
       self.animator:update()
 
       local nametag = self.name
-      if DEBUG then nametag = tostr(self.push_index) end
       level_manager:draw_msg({self.pos[1], self.pos[2] - 8}, nametag, self.animator.palette, DISPLAY_NAMEBAR_UI, self.health.health)
     end
   end
@@ -1557,7 +1549,7 @@ function make_bby(pos, palette)
 
   bby.collide_projectiles = function (self)
     -- Collide projectiles
-    for _, p in pairs(projectiles.projectiles) do
+    for _, p in pairs(projectiles) do
       if self.collider:collide_rb(p) then
         self.health:damage(0.2, nil, true)
         self.pos = v_add(self.pos, p.v)
@@ -1578,7 +1570,7 @@ function make_bby(pos, palette)
 
       self.is_colliding_with_unwalkable = true
     end
-    for _, rock in pairs(rocks.rocks) do
+    for _, rock in pairs(rocks) do
       self.collider:collide_rb(rock, collide_rock_cb)
     end
 
@@ -1597,7 +1589,7 @@ function make_bby(pos, palette)
   end
 
   bby.collide_items = function (self)
-    for _, item in pairs(items.items) do
+    for _, item in pairs(items) do
       if item.active and self.collider:is_colliding(item) then
         -- Revert the previous item's effects
         if self.current_item then
@@ -1616,7 +1608,7 @@ function make_bby(pos, palette)
   end
 
   bby.collide_food = function (self)
-    for _, food in pairs(foods.foods) do
+    for _, food in pairs(foods) do
       if food.active and self.collider:is_colliding(food) then
         self.health:heal(food.health_given)
         food.active = false
@@ -1626,7 +1618,7 @@ function make_bby(pos, palette)
   end
 
   bby.collide_enemies = function (self)
-    for _, enemy in pairs(enemies.enemies) do
+    for _, enemy in pairs(enemies) do
       if enemy.active and self.collider:is_colliding(enemy) then
         -- Get hurt
         self.health:damage(enemy.damage_dealt)
@@ -1760,7 +1752,7 @@ end
 function make_projectiles()
   projectiles = {}
 
-  projectiles.projectiles = {}
+  projectiles = {}
 end
 
 function make_projectile(pos, speed, target_pos, duration)
@@ -1818,15 +1810,13 @@ function make_projectile(pos, speed, target_pos, duration)
   end
   p:set_vel()
 
-  projectiles.projectiles[#projectiles.projectiles + 1] = p
+  projectiles[#projectiles + 1] = p
   return p
 end
 
 -- Enemy code
 function make_enemies(enemies_pos)
   enemies = {}
-
-  enemies.enemies = {}
  
   if enemies_pos then
     for _, pos in pairs(enemies_pos) do
@@ -1839,14 +1829,14 @@ function make_enemy(pos, palette)
   local enemy = {}
 
   -- Configurations
-  enemy.max_speed = 0.2
+  enemy.max_speed = 0.18
 
   enemy.name = " 🐱  "
   enemy.pos = tile_to_pixel_pos(pos or {0, 0})
   enemy.v = {0, 0}
   enemy.sprite = 128
   enemy.active = true
-  enemy.damage_dealt = 0.095
+  enemy.damage_dealt = 0.075
 
   enemy.default_speed = enemy.max_speed
   enemy.sunglasses_speed_modifier = 0.12
@@ -1949,7 +1939,7 @@ function make_enemy(pos, palette)
     end
   end
 
-  enemies.enemies[#enemies.enemies + 1] = enemy
+  enemies[#enemies + 1] = enemy
 
   return enemy
 end
@@ -2528,8 +2518,8 @@ a990099a9a0000a9a990099a00000000000000000000000000000000000000000000000000000000
 00000000009119000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00099000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00644600008878880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00600600888887880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-06000060888787880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00677600888887880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+06777760888787880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 06777760788888870000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 06777760788888700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 06777760077777000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
