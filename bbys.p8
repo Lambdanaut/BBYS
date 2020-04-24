@@ -257,7 +257,7 @@ function make_level_manager()
   level_manager.stage_duration = 5
 
   -- Number of stages for each level, listed sequentially
-  level_manager.stage_count = {24, 28, 41, 9999, 10, 20}
+  level_manager.stage_count = {24, 28, 41, 9999, 10, 30}
   level_manager.map_bounds = {x=8, y=8, w=120, h=120}  -- Rect of map bounds
 
   level_manager.message_pos = tile_to_pixel_pos({8.5, 2})  -- position on screen to display dialogue messages at
@@ -579,6 +579,7 @@ function make_level_manager()
       end
     elseif self.level == 5 then
       if self.stage == 1 then
+        self.map_palette = PALETTE_ORANGE
         -- Stop music
         music(-1)
         -- Apply whiteout effect
@@ -623,7 +624,7 @@ function make_level_manager()
       if self.stage == 1 then
         self:draw_ui_msg("A GAME BY LAMBDANAUT")
         self.map_palette = PALETTE_ORANGE
-        bby4=make_bby({8, 0}, PALETTE_GREY)
+        bby4=make_bby({8, 2}, PALETTE_GREY)
         bby4.wanderer.active = false
         bby4.health.active = false
         bby4.name = "SHARON"
@@ -726,7 +727,14 @@ function make_level_manager()
       self:init_stage()
     end
 
-    if self.stage > self.stage_count[self.level] then
+    local stage_count = self.stage_count[self.level]
+
+    if not stage_count then
+      self.level = 1
+      self.stage = 1
+      IN_SPLASH_SCREEN = true
+
+    elseif self.stage > self.stage_count[self.level] then
       -- Next level
       self.time_since_last_stage = 0
       self.level += 1
@@ -1495,7 +1503,7 @@ function make_bby(pos, palette)
     1.0, -- Max health
     SFX_BBY_DAMAGED, -- Damage sfx to play
     0.5, -- Cooldown duration
-    0.012, -- Auto damage taken per second
+    0.01, -- Auto damage taken per second
     death_callback_fn  -- Callback function to call on death
   )
   bby.wanderer = make_wanderer(
