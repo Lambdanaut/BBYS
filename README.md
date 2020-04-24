@@ -5,6 +5,11 @@ A PICO8 game for [ludum dare 46](https://ldjam.com)
 
 Play the demo here: https://lambdanaut.itch.io/bbys?secret=NUlT5Ed6Qz6PQk26dCnJywlzyG4
 
+For development
+---------------
+
+* Use [picotool](https://github.com/dansanderson/picotool)'s `luamin` command on `bbys.p8` to compress it in order to export to html5/js 
+
 
 …∧░➡️⧗▤⬆️☉🅾️◆█★⬇️✽●♥웃⌂⬅️▥❎🐱ˇ▒♪😐
 
@@ -29,21 +34,3 @@ Notes
   * Thick coat(Kenny): Makes invulnerable
   * Wig: Makes all enemies prioritize this bbys_pos
   * Sunglasses: Slows all bats
-
-TODO
-----
-
-* Fix rock collisions. We shouldn't ever get stuck on a rock. 
-* Fix it so with the crown, when destroying rocks, you don't always pick the food up right away.
-* WHY DOES bby.collide CALL ITSELF AGAIN AT THE END WTF
-* Make the bandana fire projectiles, not damage enemies on contact
-
-
-
-Refactoring Notes
------------------
-
-* Can replace all tile_to_pixel_pos calls with multiplication by 8.
-* Remove unused player.movement_enabled if it is unused
-* Replace array length using # with `add` function
-* Delete unused sprites(palm tree)

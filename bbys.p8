@@ -2,13 +2,19 @@ pico-8 cartridge // http://www.pico-8.com
 version 18
 __lua__
 
+VERSION = "1.0"
+
+-- Constants
 MAP_SIZE_X = 16
 MAP_SIZE_Y = 16
 
+-- Palettes that bbys can be
 PALETTE_ORANGE = 0
 PALETTE_GREEN = 1
 PALETTE_BLUE = 2
 PALETTE_GREY = 3
+
+-- Other Palettes
 PALETTE_PINK = 4
 PALETTE_BLACK = 5
 
@@ -67,12 +73,15 @@ SPAWN_B = {8, 17}
 SPAWN_BL = {0, 17}
 SPAWN_L = {0, 8}
 
+
+-- Globals
 IN_SPLASH_SCREEN = true
 IN_PLAYER_LOST_SCREEN = false
 DISPLAY_NAMEBAR_UI = true
 LAST_CHECKED_TIME = 0.0
-DELTA_TIME = 0.0
+DELTA_TIME = 0.0  -- time since last frame
 
+-- Game Loop 🅾️_🅾️
 function _init()
   print("welcome 🅾️_🅾️♥")
 
@@ -88,6 +97,7 @@ function _update()
   elseif IN_PLAYER_LOST_SCREEN then
     get_player_lost_input()
   else
+    -- Update level manager
     level_manager:update()
 
     local to_update = {player}
@@ -113,16 +123,20 @@ function _draw()
   elseif IN_PLAYER_LOST_SCREEN then
     draw_player_lost_message()
   else
+    -- Clear screen
     cls()
 
+    -- Draw the Level Manager
     level_manager:draw()
 
+    -- Draw the rocks
     set_palette(level_manager.map_palette)
     for _, rock in pairs(rocks) do 
       rock:draw() 
     end
     reset_palette()
 
+    -- Table of character to draw in order of y axis
     local draw_table = {player}
     if boss1 then draw_table[2] = boss1 end
     if heart then draw_table[3] = heart end
@@ -137,10 +151,13 @@ function _draw()
       character:draw()
     end
 
+    -- Draw stage specific ui updates
     level_manager:draw_stage_ui()
 
   end
 end
+
+-- Splash screen code
 
 function get_splash_screen_input()
   if (btnp(4)) then 
@@ -209,17 +226,21 @@ function draw_bby_iterations(iterations)
     end
   end
 end
+--map code
 
 function tile_to_pixel_pos(tile_coord)
+  -- Given the coordinate of a tile, translate that to pixel values
   return {tile_coord[1]*8, tile_coord[2]*8}
 end
 
 function tile_pos_to_rect(tile_coord)
+  -- Given the coordinate of a tile, translate that to a rect of the tile
   local pixel_coords = tile_to_pixel_pos(tile_coord)
   return {x=pixel_coords[1], y=pixel_coords[2], w=8, h=8 }
 end
 
 function pixel_to_tile_pos(pixel_coord)
+  -- Given coordinates in pixels, translate that to a tile position
   return {pixel_coord[1] / 8, pixel_coord[2] / 8}
 end
 
@@ -229,26 +250,33 @@ function tile_has_flag(x, y, flag)
   return has_flag
 end
 
+-- Level manager code
 function make_level_manager()
   level_manager = {}
 
   level_manager.level = 1
-  level_manager.stage = 1
+  level_manager.stage = 1  -- The progression of the current level
   level_manager.stage_duration = 5
 
+  -- Number of stages for each level, listed sequentially
   level_manager.stage_count = {24, 28, 41, 9999, 10, 30}
-  level_manager.map_bounds = {x=8, y=8, w=120, h=120}
+  level_manager.map_bounds = {x=8, y=8, w=120, h=120}  -- Rect of map bounds
 
-  level_manager.message_pos = tile_to_pixel_pos({8.5, 2})
+  level_manager.message_pos = tile_to_pixel_pos({8.5, 2})  -- position on screen to display dialogue messages at
 
   level_manager.time_since_last_stage = 0
 
   level_manager.map_palette = nil
 
+  -- Components
+
+  -- do_for that can be edited from anywhere. Hotswap the callback_fn and do start() to run it
   level_manager.ui_do_for = make_do_for(level_manager, 2.5)  
+  -- do_for for special effects like whiting out the screen. Hotswap the callback_fn and do start() to run it
   level_manager.effect_do_for = make_do_for(level_manager, 20)  
 
   level_manager.init_level = function(self)
+    -- Play music
     music(MUSIC_LVL1, 0, MUSIC_BITMASK)
 
     make_player()
@@ -264,9 +292,11 @@ function make_level_manager()
 
   level_manager.init_stage = function(self)
     if self.stage == 18 and self.level < 4 then
+      -- Replay the music if it's stopped
       music(MUSIC_LVL1, 0, MUSIC_BITMASK)
     end 
 
+    -- Called once each time a new stage is entered
     if self.level == 1 then
       if self.stage == 1 then
         local rock_pos = {
@@ -350,6 +380,7 @@ function make_level_manager()
       elseif self.stage == 6 then
         make_enemy(SPAWN_B, PALETTE_GREEN)
       elseif self.stage == 10 then
+        -- Enemies go only after new bby
         make_enemy(SPAWN_L, PALETTE_GREEN)
       elseif self.stage == 15 then
         make_enemy(SPAWN_T)
@@ -452,7 +483,9 @@ function make_level_manager()
       end
     elseif self.level == 4 then
       if self.stage == 1 then
+        -- self.stage = 5
         self.map_palette = PALETTE_ORANGE
+        -- Make rocks
         local rock_pos = {}
         for x = 2, 15 do
           if (x % 3 == 1) then
@@ -507,6 +540,7 @@ function make_level_manager()
         sfx(SFX_TALK)
         boss1.speech_do_for:start()
       elseif self.stage == 6 then
+        -- self.stage = 27
         self:draw_ui_msg(".welcom to hell mothr fuckr.", 
           PALETTE_BLACK)
         boss1.animator.palette = PALETTE_BLACK
@@ -548,7 +582,9 @@ function make_level_manager()
     elseif self.level == 5 then
       if self.stage == 1 then
         self.map_palette = PALETTE_ORANGE
+        -- Stop music
         music(-1)
+        -- Apply whiteout effect
         self.ui_do_for:stop()
         sfx(SFX_HEAL_ALL_BBYS)
         self.effect_do_for.callback_fn = function(l)
@@ -657,6 +693,7 @@ function make_level_manager()
   end
 
   level_manager.destroy_level = function(self)
+    -- Reset all level components
     items = {}
     foods = {}
     rocks = {}
@@ -666,6 +703,9 @@ function make_level_manager()
   end
 
   level_manager.draw_stage_ui = function(self)
+    -- Called each frame for stage_specific ui updates
+
+    -- Update our ui do_for that let's us spawn messages
     self.effect_do_for:update()
     self.ui_do_for:update()
   end
@@ -673,14 +713,17 @@ function make_level_manager()
   level_manager.update = function(self)
     self.time_since_last_stage += DELTA_TIME
 
+    -- Toggle display of namebar ui
     if (btnp(5)) then 
       sfx(SFX_TOGGLE_UI)
       DISPLAY_NAMEBAR_UI = not DISPLAY_NAMEBAR_UI
     end
 
+    -- Keep player and bbys in map bounds
     self:keep_in_map_bounds()
 
     if self.time_since_last_stage > self.stage_duration then
+      -- Next stage
       self.time_since_last_stage = 0
       self.stage += 1
       self:init_stage()
@@ -694,6 +737,7 @@ function make_level_manager()
       IN_SPLASH_SCREEN = true
 
     elseif self.stage > self.stage_count[self.level] then
+      -- Next level
       self.time_since_last_stage = 0
       self.level += 1
       self:destroy_level()
@@ -711,11 +755,15 @@ function make_level_manager()
   end
 
   level_manager.keep_in_map_bounds = function(self)
+    -- Keep player in map bounds
     self:keep_object_in_map_bounds(player)
 
+    -- Keep heart in map bounds
     if heart then
       self:keep_object_in_map_bounds(heart, 8)
     end
+
+    -- Keep bbys in map bounds
     if self.level ~= 6 then
       for _, bby in pairs(bbys) do
         if self:keep_object_in_map_bounds(bby, 8) then
@@ -729,15 +777,19 @@ function make_level_manager()
     if not offset then offset = 0 end
 
     if obj.pos[2] < self.map_bounds.y + offset then
+      -- top
       obj.pos[2] = self.map_bounds.y + offset
       return true
     elseif obj.pos[2] > self.map_bounds.y + self.map_bounds.h - offset then
+      -- bottom
       obj.pos[2] = self.map_bounds.y + self.map_bounds.h - offset
       return true
     elseif obj.pos[1] < self.map_bounds.x + offset then
+      -- left
       obj.pos[1] = self.map_bounds.x + offset
       return true
     elseif obj.pos[1] > self.map_bounds.x + self.map_bounds.w - offset then
+      -- bottom
       obj.pos[1] = self.map_bounds.x + self.map_bounds.w - offset
       return true
     end
@@ -764,11 +816,13 @@ function make_level_manager()
     if display_namebar or display_namebar == nil then
       msg_length = #msg
     else
+      -- Trim the message length if we're not display the full name bar
       msg_length = 2
     end
 
     local bar_length = bar_length
     if bar_length then
+      -- bar_length should be between 0.0 and 1.0
       local bar_length = max(0.0, bar_length or 1.0)
     end
     local padding = 2
@@ -776,21 +830,23 @@ function make_level_manager()
     local y_pos = center_pos[2]
     local bg_color = 6
 
+    -- PALETTE_GREY IS DEFAULT 
     if (palette) then
       if palette == PALETTE_ORANGE then
         bg_color = 9
       elseif palette == PALETTE_GREEN then
-        bg_color = 3
+        bg_color = 3  -- dark green
       elseif palette == PALETTE_BLUE then
         bg_color = 12
       elseif palette == PALETTE_PINK then
         bg_color = 14
       elseif palette == PALETTE_BLACK then
-        bg_color = 8
+        bg_color = 8  -- Palette black has red background for text boxes
       end
     end
 
     if (display_namebar or display_namebar == nil) then
+      -- Draw Message Background Rectangle
       rectfill(
         x_pos - padding,
         y_pos - padding,
@@ -798,13 +854,16 @@ function make_level_manager()
         y_pos + 5,
         bg_color)
 
+      -- Draw message
       print(msg, x_pos, y_pos - 1, 0)
     end
 
+    -- Draw bar
     if (bar_length) then
       local bar_bg_color = 0
       local bar_fill_color = 8
 
+      -- Bar Background
       line(
         x_pos - padding,
         y_pos + 5,
@@ -812,11 +871,15 @@ function make_level_manager()
         y_pos + 5,
         bar_bg_color
       )
+      -- Bar Fill
       if(bar_length > 0.0) then
+        -- Green
         local bar_fill_color = 11
         if (bar_length < 0.25) then
+          -- Red
           bar_fill_color = 8
         elseif (bar_length < 0.6) then
+          -- Yellow
           bar_fill_color = 10
         end
 
@@ -838,9 +901,12 @@ function make_level_manager()
 
 end
 
+-- Player code
+
 function make_player(pos)
   player = {}
 
+  -- Configurations
   player.max_speed = 1.0
   player.damage_to_rocks = 0.1
 
@@ -851,9 +917,10 @@ function make_player(pos)
   player.movement_enabled = true
   player.collide_with_boss1 = true
 
-  player.max_speed_collision_modifier = 2.0
+  player.max_speed_collision_modifier = 2.0  -- Amount to set max_speed to when colliding with a bby with pants
   player.default_speed = player.max_speed
 
+  -- Components
   player.animator = make_animator(
     player,
     0.1,
@@ -881,54 +948,64 @@ function make_player(pos)
   end
 
   player.update_position = function(self)
+    -- Update position based on velocity
     self.pos = v_add(self.pos, self.v)
   end
 
   player.move = function(self)
     local did_move = false
     local x_change = 0
-		local y_change = 0
+    local y_change = 0
 
-		if (btn(⬅️)) then x_change = -self.max_speed end
-		if (btn(➡️)) then x_change = self.max_speed end
-		if (btn(⬆️)) then y_change = -self.max_speed end
-		if (btn(⬇️)) then y_change = self.max_speed end
+    -- Get input
+    if btn(0) then x_change = -self.max_speed end
+    if btn(1) then x_change = self.max_speed end
+    if btn(2) then y_change = -self.max_speed end
+    if btn(3) then y_change = self.max_speed end
 
     if (x_change != 0 or y_change != 0) then
-        did_move = true
-        self.v = {x_change, y_change}
+      did_move = true
+      self.v = {x_change, y_change}
     else
       self.v = {0, 0}
     end
 
+    -- Do animation if we moved
     self.animator.animation_flag = did_move
     if x_change > 0 then self.animator.flip_sprite = true elseif x_change < 0 then self.animator.flip_sprite = false end
 
   end
 
   player.collide = function(self)
+    -- Do bby collision
     local touching_bby_with_pants = false
     for _, bby in pairs(bbys) do
       if self.collider:is_colliding(bby) then
 
         if bby.current_item and bby.current_item.sprite == 88 then
+          -- Run faster when we're touching a baby with pants on
           self.max_speed = self.max_speed_collision_modifier
           touching_bby_with_pants = true
         end
 
         if bby.is_colliding_with_unwalkable then
+          -- BBY is colliding with unwalkable. We can't move this way
           self.collider:collide_rb(bby)
         else
           sfx(SFX_PUSH_BBY)
           bby.push_index = 1
           local collision_direction = self.collider:get_collision_direction(bby)
           if collision_direction == TOP_COLLISION then
+            -- Colliding top
             bby.pos[2] = self.pos[2] - self.collider.rect.h
           elseif collision_direction == BOTTOM_COLLISION then
+            -- Colliding bottom
             bby.pos[2] = self.pos[2] + self.collider.rect.h
           elseif collision_direction == LEFT_COLLISION then
+            -- Colliding left
             bby.pos[1] = self.pos[1] - self.collider.rect.w
           elseif collision_direction == RIGHT_COLLISION then
+            -- Colliding right
             bby.pos[1] = self.pos[1] + self.collider.rect.w
           end
         end
@@ -941,20 +1018,26 @@ function make_player(pos)
       self.max_speed = self.default_speed
     end
 
+    -- Heart collision
     if heart and self.collider:is_colliding(heart) then
       sfx(SFX_PUSH_BBY)
       local collision_direction = self.collider:get_collision_direction(heart)
       if collision_direction == TOP_COLLISION then
+        -- Colliding top
         heart.pos[2] = self.pos[2] - self.collider.rect.h
       elseif collision_direction == BOTTOM_COLLISION then
+        -- Colliding bottom
         heart.pos[2] = self.pos[2] + self.collider.rect.h
       elseif collision_direction == LEFT_COLLISION then
+        -- Colliding left
         heart.pos[1] = self.pos[1] - self.collider.rect.w
       elseif collision_direction == RIGHT_COLLISION then
+        -- Colliding right
         heart.pos[1] = self.pos[1] + self.collider.rect.w
       end
     end
 
+    -- Boss1 collision
     if boss1 and boss1.active then
       local collide_boss1_cb = function(b)
         sfx(SFX_PLAYER_DAMAGED)
@@ -965,6 +1048,7 @@ function make_player(pos)
       end
     end
 
+    -- Projectiles collision
     local collide_projectile_cb = function(p)
       p.active = false
       sfx(SFX_PLAYER_DAMAGED)
@@ -975,6 +1059,7 @@ function make_player(pos)
       end
     end
 
+    -- Do rock collision
     local has_damaged_rock = false
     local collide_rock_cb = function(rock)
       if not has_damaged_rock then
@@ -990,12 +1075,23 @@ function make_player(pos)
 
   player.draw = function(self)
     self.animator:update()
-	end
+  end
 
 end
 
+-- Item code
+
 function make_items()
   items = {}
+  -- items.create_all_items_randomly = function(self)
+  --   -- Create all items on map in random positions. Some may be overlapping
+  --   for _, index in pairs(ITEM_INDEXES) do
+  --     item_pos_x = flr(rnd(MAP_SIZE_X - 2)) + 1
+  --     item_pos_y = flr(rnd(MAP_SIZE_Y - 2)) + 1
+  --     item = make_item(index, {item_pos_x*8, item_pos_y*8})
+  --     item.health.auto_dps_active = false
+  --   end
+  -- end
 end
 
 function make_item(sprite, pos)
@@ -1005,21 +1101,23 @@ function make_item(sprite, pos)
   item.active = true
   item.pos = pos
 
+  -- Components
   item.collider = make_collider(
     item,
     8,
     8)
 
   death_callback_fn = function(item)
+    -- Called on death
     item.active = false
   end
   item.health = make_health(
     item,
-    1.0,
-    nil,
-    nil,
-    0.07,
-    death_callback_fn
+    1.0,  -- Max health
+    nil, -- Damage SFX to play
+    nil, -- Cooldown duration
+    0.07,  -- Auto damage taken per second
+    death_callback_fn  -- Callback function to call on death
   )
 
   item.update = function(self)
@@ -1040,21 +1138,27 @@ function make_item(sprite, pos)
   end
 
   item.apply_modifier = function(self, bby)
+    -- Adds an items modifier, affecting the game
     local s = self.sprite
 
     local draw_msg = function(msg)
+      -- Helper function to display a message for the item picked up
       level_manager:draw_ui_msg(msg, PALETTE_PINK, 3.5, true)
     end
 
     if s == 69 then
+      -- Meg cap
       draw_msg("PINK HAT IS UTTERLY USELESS")
     elseif s == 70 then
+      -- Flower
+      -- Create food in random positions
       for _ = 0, 6 do
         local pos = tile_to_pixel_pos(random_tile_on_map())
         make_food(pos)
       end
       draw_msg("FLOWER GENERATED FOOD")
     elseif s == 71 then
+      -- Eye Patch
       for _, enemy in pairs(enemies) do
         if enemy.active then
           enemy.health:damage(1.0)
@@ -1063,41 +1167,54 @@ function make_item(sprite, pos)
       end
       draw_msg("EYEPATCH ASSASSINATED MONSTER")
     elseif s == 72 then
+      -- Wig
       for _, enemy in pairs(enemies) do
         enemy.follower.target = nil
       end
       draw_msg("WIG ATTRACTS MONSTERS")
     elseif s == 73 then
+      -- Crown
       for _ = 0, 10 do
         local pos = random_tile_on_map()
         make_rock(pos)
       end
       draw_msg("CROWN GENERATED ROCKS")
     elseif s == 74 then
+      -- Clown nose
      sfx(SFX_HEAL_ALL_BBYS)
      for _, bby in pairs(bbys) do
        if bby.active then bby.health.health = 1.0 end
      end
       draw_msg("CLOWN NOSE HEALED ALL")
     elseif s == 75 then
+      -- Karate headband 
       bby.destroy_rocks_on_collision = true
       draw_msg("HEADBAND BREAKS ROCKS")
     elseif s == 76 then
+      -- Bra
       bby.health.auto_dps_active = false
       draw_msg("BRA STOPS HUNGER")
     elseif s == 85 then
+      -- Dress
       bby.heal_bbys_on_collision = true
       draw_msg("DRESS HEAL ON CONTACT")
     elseif s == 86 then
+      -- Sunglasses
       draw_msg("SUNGLASSES SLOWS MONSTERS")
     elseif s == 87 then
+      -- Bandit bandana
       draw_msg("BANDANA HURTS MONSTERS")
     elseif s == 88 then
+      -- Pants
+      -- Code is in player.collide. Speed up player on collision
       draw_msg("PANTS UPS PUSHING SPEED")
     elseif s == 89 then
+      -- Kenny hoody
       bby.health.direct_damage_active = false
       draw_msg("COAT GIVES INVULNERABILITY")
     elseif s == 90 then
+      -- Alien antlers
+      -- Randomize locations of bbys and enemies
       sfx(SFX_SCRAMBLE_CHARS)
       local chars_to_randomize = {player}
       merge_tables(chars_to_randomize, bbys)
@@ -1110,11 +1227,13 @@ function make_item(sprite, pos)
       end
       draw_msg("ANTENNAE TELEPORTS YOU")
     elseif s == 91 then
+      -- Mask
       for _, enemy in pairs(enemies) do
         enemy.follower.target = nil
       end
       draw_msg("MASK HIDES FROM MONSTERS")
     elseif s == 92 then
+      -- Box
       bby.wanderer.active = false
       draw_msg("BOX STOPS BBY WANDERING")
     end
@@ -1122,34 +1241,51 @@ function make_item(sprite, pos)
   end
 
   item.revert_modifier = function(self, bby)
+    -- Reverts an items modifier, removing it
     local s = self.sprite
 
     if s == 69 then
+      -- Meg cap
     elseif s == 70 then
+      -- Flower
     elseif s == 71 then
+      -- Eye Patch
     elseif s == 72 then
+      -- Wig
       for _, enemy in pairs(enemies) do
         enemy.follower.target = nil
       end
     elseif s == 73 then
+      -- Crown
     elseif s == 74 then
+      -- Clown nose
     elseif s == 75 then
+      -- Karate headband 
       bby.destroy_rocks_on_collision = false
     elseif s == 76 then
+      -- Bra
       bby.health.auto_dps_active = true
     elseif s == 85 then
+      -- Dress
       bby.heal_bbys_on_collision = false
     elseif s == 86 then
+      -- Sunglasses
     elseif s == 87 then
+      -- Bandit bandana
     elseif s == 88 then
+      -- Pants
     elseif s == 89 then
+      -- Kenny hoody
       bby.health.direct_damage_active = true
     elseif s == 90 then
+      -- Alien antlers
     elseif s == 91 then
+      -- Mask
       for _, enemy in pairs(enemies) do
         enemy.follower.target = nil
       end
     elseif s == 92 then
+      -- Box
       bby.wanderer.active = true
     end
   end
@@ -1161,7 +1297,7 @@ function make_item(sprite, pos)
 end
 
 function item_index_to_bby_index(item)
-  return item-37
+  return item-37  -- Items are 37 sprite tiles further than their bby sprites.
 end
 
 
@@ -1177,8 +1313,14 @@ function make_food(pos, sprite)
   food.active = true
   food.sprite = 144
 
+  -- Commented out and removed steak
+  -- Milk heals less than steak
+  -- food.sprite = sprite or flr(rnd(2)) + 144 -- Randomly chooses between the two food sprites at 144 and 145
+  -- if food.sprite == 144 then food.health_given = 0.5 else food.health_given = 1.0 end
+
   food.health_given = 1.0
 
+  -- Components
   food.collider = make_collider(
     food,
     8,
@@ -1199,7 +1341,10 @@ function make_food(pos, sprite)
   return food
 end
 
+-- Rocks code
+
 function make_rocks(rocks_tile_pos)
+  -- Takes as input a table of rock tile positions (pixel pos divided by 8)
   rocks = {}
 
   rocks = {}
@@ -1219,20 +1364,24 @@ function make_rock(pos)
   rock.sprite = 60
 
   death_callback_fn = function(rock)
+    -- Called on death
+
+    -- Create food at place of death
     make_food(rock.pos)
 
     rock.active = false
   end
 
+  -- Components
   rock.health = make_health(
     rock,
-    1.0,
-    SFX_HIT_ROCK,
-    0.4,
-    nil,
-    death_callback_fn,
-    0.65,
-    rock.sprite + 64
+    1.0,  -- Max health
+    SFX_HIT_ROCK,  -- Damage sfx to play
+    0.4, -- Cooldown duration
+    nil,  -- Auto damage taken per second (none)
+    death_callback_fn,  -- Callback function to call on death
+    0.65,  -- Low health sprite change threshhold
+    rock.sprite + 64 -- Sprite to change to on low health
     )
   rock.collider = make_collider(
     rock,
@@ -1258,10 +1407,11 @@ end
 function make_heart(pos)
   heart = {}
 
-  heart.sprite = 31-64
+  heart.sprite = 31-64 -- 31st sprite offset by 64 for the animator
   heart.active = true
   heart.pos = pos
 
+  -- Components
   heart.animator = make_animator(
     heart, 
     0.3,
@@ -1287,6 +1437,7 @@ function make_heart(pos)
   end
 
   heart.collide = function(self)
+    -- Do boss collision
     if boss1 and boss1.active and self.collider:is_colliding(boss1) then
       self.active = false
       level_manager:init_winning_scene()      
@@ -1298,6 +1449,8 @@ function make_heart(pos)
 
 end
 
+
+-- BBY code
 function make_bbys(bbys_pos)
   bbys = {}
  
@@ -1311,6 +1464,7 @@ end
 function make_bby(pos, palette)
   local bby = {}
 
+  -- Configurations
   bby.max_speed = 0.5
 
   bby.name = BBY_NAMES[flr(rnd(#BBY_NAMES)) + 1]
@@ -1321,11 +1475,12 @@ function make_bby(pos, palette)
 
   bby.push_index = 0
   bby.is_pushed_by_bby = false
-  bby.is_colliding_with_unwalkable = false
+  bby.is_colliding_with_unwalkable = false  -- true if colliding with a rock
   bby.current_item = nil
-  bby.heal_bbys_on_collision = false
-  bby.destroy_rocks_on_collision = false
+  bby.heal_bbys_on_collision = false  -- Item modifier for the dress
+  bby.destroy_rocks_on_collision = false -- Ite modifier for the headband
 
+  -- Components
   bby.animator = make_animator(
     bby, 
     0.3,
@@ -1344,11 +1499,11 @@ function make_bby(pos, palette)
 
   bby.health = make_health(
     bby,
-    1.0,
-    SFX_BBY_DAMAGED,
-    0.5,
-    0.01,
-    death_callback_fn
+    1.0, -- Max health
+    SFX_BBY_DAMAGED, -- Damage sfx to play
+    0.5, -- Cooldown duration
+    0.01, -- Auto damage taken per second
+    death_callback_fn  -- Callback function to call on death
   )
   bby.wanderer = make_wanderer(
     bby,
@@ -1388,6 +1543,7 @@ function make_bby(pos, palette)
   end
 
   bby.collide = function(self)
+    -- Do bby collision
     self.is_pushed_by_bby = false
 
     self:collide_bbys()
@@ -1399,6 +1555,7 @@ function make_bby(pos, palette)
   end
 
   bby.collide_projectiles = function (self)
+    -- Collide projectiles
     for _, p in pairs(projectiles) do
       if self.collider:collide_rb(p) then
         self.health:damage(0.2, nil, true)
@@ -1410,6 +1567,7 @@ function make_bby(pos, palette)
   end
 
   bby.collide_unwalkable = function (self)
+    -- Collide rocks
     self.is_colliding_with_unwalkable = false
 
     local collide_rock_cb = function(rock)
@@ -1423,6 +1581,7 @@ function make_bby(pos, palette)
       self.collider:collide_rb(rock, collide_rock_cb)
     end
 
+    -- Collide Boss
     collide_unwalkable_cb = function(rock)
       self.is_colliding_with_unwalkable = true
     end
@@ -1430,6 +1589,7 @@ function make_bby(pos, palette)
       self.collider:collide_rb(boss1, collide_unwalkable_cb)
     end
 
+    -- Collide Heart
     if heart then
       self.collider:collide_rb(heart, collide_unwalkable_cb)
     end
@@ -1438,9 +1598,11 @@ function make_bby(pos, palette)
   bby.collide_items = function (self)
     for _, item in pairs(items) do
       if item.active and self.collider:is_colliding(item) then
+        -- Revert the previous item's effects
         if self.current_item then
           self.current_item:revert_modifier(self)
         end
+        -- Apply the new item's effects
         item:apply_modifier(self)
 
         self.sprite = item:to_bby()
@@ -1465,8 +1627,10 @@ function make_bby(pos, palette)
   bby.collide_enemies = function (self)
     for _, enemy in pairs(enemies) do
       if enemy.active and self.collider:is_colliding(enemy) then
+        -- Get hurt
         self.health:damage(enemy.damage_dealt)
 
+        -- Do damage to enemy if we're wearing the bandana
         if self.current_item and self.current_item.sprite == 87 then
           enemy.health:damage(0.2)
         end
@@ -1487,33 +1651,44 @@ function make_bby(pos, palette)
           end
 
           if other_bby.push_index == self.push_index and self.push_index > 0 then
+            -- Fixes some edge cases where bbys next to each other would increment each other indefinitely
             other_bby.push_index += 1
           end
 
           if other_bby.push_index > self.push_index then
+            -- Do colliding with pushed bby
             self.push_index = other_bby.push_index
             other_bby.push_index += 1
             self.is_pushed_by_bby = true
 
             local collision_direction = self.collider:get_collision_direction(other_bby)
             if collision_direction == TOP_COLLISION then
+              -- Colliding top
               self.pos[2] = other_bby.pos[2] + self.collider.rect.h
             elseif collision_direction == BOTTOM_COLLISION then
+              -- Colliding bottom
               self.pos[2] = other_bby.pos[2] - self.collider.rect.h
             elseif collision_direction == LEFT_COLLISION then
+              -- Colliding left
               self.pos[1] = other_bby.pos[1] + self.collider.rect.w
             elseif collision_direction == RIGHT_COLLISION then
+              -- Colliding right
               self.pos[1] = other_bby.pos[1] - self.collider.rect.w
             end
           elseif other_bby.push_index == 0 then
+            -- Do colliding with wandering bby
             local collision_direction = self.collider:get_collision_direction(other_bby)
             if collision_direction == TOP_COLLISION then
+              -- Colliding top
               other_bby.pos[2] = self.pos[2] - self.collider.rect.h
             elseif collision_direction == BOTTOM_COLLISION then
+              -- Colliding bottom
               other_bby.pos[2] = self.pos[2] + self.collider.rect.h
             elseif collision_direction == LEFT_COLLISION then
+              -- Colliding left
               other_bby.pos[1] = self.pos[1] - self.collider.rect.w
             elseif collision_direction == RIGHT_COLLISION then
+              -- Colliding right
               other_bby.pos[1] = self.pos[1] + self.collider.rect.w
             end
           end
@@ -1530,14 +1705,17 @@ function make_bby(pos, palette)
 end
 
 function make_boss1(pos)
+  -- Global boss1
   boss1 = {}
 
+  -- Configurations
   boss1.max_speed = 0.2
 
   boss1.pos = pos
   boss1.sprite = 47
   boss1.active = true
 
+  -- Components
   boss1.speech_do_for = make_do_for(
     boss1, 3,
     function (b) b.animator.animation_flag = true end,
@@ -1591,11 +1769,12 @@ function make_projectile(pos, speed, target_pos, duration)
   p.speed = speed
   p.target_pos = target_pos
   p.duration = duration
-  p.sprite = 15 - 64
-  p.v = nil
+  p.sprite = 15 - 64 -- 15th sprite offset by 64 for the animator
+  p.v = nil -- This is calculated below
 
   p.active = true
 
+  -- Components
   p.collider = make_collider(
     p, 8, 8)
 
@@ -1617,6 +1796,7 @@ function make_projectile(pos, speed, target_pos, duration)
       self.expiration_do_for:update()
       self.collider:update()
 
+      -- Update position based on velocity
       self.pos = v_add(self.pos, self.v)
     end
   end
@@ -1641,6 +1821,7 @@ function make_projectile(pos, speed, target_pos, duration)
   return p
 end
 
+-- Enemy code
 function make_enemies(enemies_pos)
   enemies = {}
  
@@ -1654,6 +1835,7 @@ end
 function make_enemy(pos, palette)
   local enemy = {}
 
+  -- Configurations
   enemy.max_speed = 0.18
 
   enemy.name = " 🐱  "
@@ -1666,6 +1848,7 @@ function make_enemy(pos, palette)
   enemy.default_speed = enemy.max_speed
   enemy.sunglasses_speed_modifier = 0.12
 
+  -- Components
   enemy.animator = make_animator(
     enemy, 
     0.3,
@@ -1691,27 +1874,31 @@ function make_enemy(pos, palette)
   end
   enemy.health = make_health(
     enemy,
-    1.0,
-    SFX_ENEMY_DAMAGED,
-    0.1,
-    0.05,
-    death_callback_fn
+    1.0, -- Max health
+    SFX_ENEMY_DAMAGED, -- Damage sfx to play
+    0.1, -- Cooldown duration
+    0.05, -- Auto damage taken per second
+    death_callback_fn  -- Callback function to call on death
   )
   find_target_fn = function(enemy)
+    -- Find a target with the same color palette as us
     local new_target = nil
     for _, bby in pairs(bbys) do
       if bby.active then
         local bby_is_wearing_mask = bby.current_item and bby.current_item.sprite == 91
         if bby.animator.palette == enemy.animator.palette and not bby_is_wearing_mask then
+          -- Prioritize same color, deprioritize mask.
           new_target = bby
         end
         if bby.current_item and bby.current_item.sprite == 72 then
+          -- Prioritize bbys wearing the wig
           new_target = bby
           break
         end
       end
     end
 
+    -- Set the target to the player if one wasn't found
     if new_target == nil then
       new_target = player
     end
@@ -1749,6 +1936,7 @@ function make_enemy(pos, palette)
   end
 
   enemy.update_for_sunglasses = function(self)
+    -- Slow us down if a bby is wearing sunglasses
     self.max_speed = self.default_speed
     for _, bby in pairs(bbys) do
       if bby.active and bby.current_item and bby.current_item.sprite == 86 then
@@ -1763,22 +1951,26 @@ function make_enemy(pos, palette)
   return enemy
 end
 
+
+-- Follow code
 function make_follower(parent, target, follow_speed, closest_distance, find_target_fn)
   local follower = {}
   follower.parent = parent
 
-  follower.target = target
-  follower.follow_speed = follow_speed
+  follower.target = target  -- target must have pos
+  follower.follow_speed = follow_speed  -- Uses parent's max_speed attribute if this is nil
   follower.is_following = true
-  follower.closest_distance = closest_distance
-  follower.find_target_fn = find_target_fn
+  follower.closest_distance = closest_distance  -- Closest you can be to the target before stopping
+  follower.find_target_fn = find_target_fn  -- Optional function to find a target. Also called if target becomes inactive
 
+  -- Find a target if we have a function but no starting target
   if follower.find_target_fn and follower.target == nil then
     follower.target = follower.find_target_fn(follower.parent)
   end
 
   follower.update = function(self)
     if self.find_target_fn and (self.target == nil or (self.target and not self.target.active)) then
+      -- If our target is inactive or nil, find a new one
       self.target = self.find_target_fn(self.parent)
     end
 
@@ -1799,6 +1991,7 @@ function make_follower(parent, target, follow_speed, closest_distance, find_targ
 
       self.parent.v = v
     elseif self.find_target_fn then
+      -- We've lost a target. Try to find one.
       self.find_target_fn(self.parent)
     end
   end
@@ -1806,6 +1999,8 @@ function make_follower(parent, target, follow_speed, closest_distance, find_targ
   return follower
 end
 
+
+-- Wander code
 function make_wanderer(parent, wander_speed, frequency, duration, random_offset)
   local wanderer = {}
   wanderer.parent = parent
@@ -1813,7 +2008,7 @@ function make_wanderer(parent, wander_speed, frequency, duration, random_offset)
   wanderer.wander_speed = wander_speed
   wanderer.frequency = frequency
   wanderer.duration = duration
-  wanderer.random_offset = random_offset or 0
+  wanderer.random_offset = random_offset or 0 -- Additional random time(from zero to this number) that is added to time between wanderings
 
   wanderer.time_since_last_wander = 0
   wanderer.time_since_starting_wander = 0
@@ -1822,24 +2017,29 @@ function make_wanderer(parent, wander_speed, frequency, duration, random_offset)
   wanderer.active = true
 
   wanderer.stop = function(self)
+    -- Stops and resets the active wandering. Will start up again. 
     self.is_wandering = false
     self.time_since_starting_wander = 0
     self.time_since_last_wander = 0 - rnd(self.random_offset)
-    self.parent.v = {0, 0}
+    self.parent.v = {0, 0}  -- Stop moving
   end
 
   wanderer.wander = function(self)
     if self.active then
       if not self.is_wandering then
+        -- We're not wandering
 
+        -- Increment the time_since_last_wander count
         self.time_since_last_wander += DELTA_TIME
 
         if self.time_since_last_wander > self.frequency then
+          -- Start wandering
 
           local rand_x = rnd(3)
           local rand_y = rnd(3)
           local x = 0
           local y = 0
+          -- Get random x value
           if rand_x > 2 then 
             x = self.wander_speed 
           elseif rand_x > 1 then
@@ -1848,6 +2048,7 @@ function make_wanderer(parent, wander_speed, frequency, duration, random_offset)
             x = 0 
           end
 
+          -- Get random y value
           if rand_y > 2 then 
             y = self.wander_speed 
           elseif rand_y > 1 then
@@ -1861,8 +2062,10 @@ function make_wanderer(parent, wander_speed, frequency, duration, random_offset)
           self.is_wandering = true
         end
       else
+        -- We are wandering
         self.time_since_starting_wander += DELTA_TIME
         if self.time_since_starting_wander > self.duration then
+          -- Stop wandering
           self:stop()
         end
       end
@@ -1872,6 +2075,8 @@ function make_wanderer(parent, wander_speed, frequency, duration, random_offset)
   return wanderer
 end
 
+
+-- Animator code
 
 function make_animator(parent, fps, sprite_offset, palette, animation_flag)
   local animator = {}
@@ -1888,6 +2093,7 @@ function make_animator(parent, fps, sprite_offset, palette, animation_flag)
   animator.palette = palette
 
   animator.update = function(self)
+    -- Update and animate the sprite
     self.time_since_last_frame += DELTA_TIME
     if self.active then
       if self.animation_flag and self.time_since_last_frame > self.fps then
@@ -1920,6 +2126,7 @@ function make_animator(parent, fps, sprite_offset, palette, animation_flag)
 
 end
 
+-- Collider
 function make_collider(parent, w, h, offset)
   local collider = {}
   collider.parent = parent
@@ -1931,6 +2138,7 @@ function make_collider(parent, w, h, offset)
     w=w - collider.offset*2,
     h=h - collider.offset*2}
 
+  -- Uninitialized collider detectors as rects(xpos, ypos, width, height)
   collider.t = {x=0,y=0,w=0,h=0} 
   collider.b = {x=0,y=0,w=0,h=0}
   collider.l = {x=0,y=0,w=0,h=0}
@@ -1967,17 +2175,23 @@ function make_collider(parent, w, h, offset)
   end
 
   collider.collide_rb = function(self, other, callback_fn, offset)
+    -- Pushes us to the side when we're colliding against something
+    -- callback_fn is called on successful collision
     if other.active and self:is_colliding(other) then
       if callback_fn then callback_fn(other) end
       if not offset then offset = 0 end
       local collision_direction = self:get_collision_direction(other)
       if collision_direction == TOP_COLLISION then
+        -- Colliding top
         self.parent.pos[2] = other.pos[2] + self.rect.h + offset
       elseif collision_direction == BOTTOM_COLLISION then
+        -- Colliding bottom
         self.parent.pos[2] = other.pos[2] - self.rect.h - offset
       elseif collision_direction == LEFT_COLLISION then
+        -- Colliding left
         self.parent.pos[1] = other.pos[1] + self.rect.w + offset
       elseif collision_direction == RIGHT_COLLISION then
+        -- Colliding right
         self.parent.pos[1] = other.pos[1] - self.rect.w - offset
       end
       return true
@@ -2000,6 +2214,7 @@ function make_collider(parent, w, h, offset)
 
 end
 
+-- Health
 function make_health(parent, 
   max_health, damage_sfx, cooldown_duration, auto_damage_per_second, 
   death_callback_fn, low_health_amount, low_health_sprite)
@@ -2010,10 +2225,11 @@ function make_health(parent,
   health.max_health = max_health
   health.health = max_health
   health.cooldown_duration = cooldown_duration
-  health.auto_damage_per_second = auto_damage_per_second
-  health.death_callback_fn = death_callback_fn
-  health.damage_sfx = damage_sfx
+  health.auto_damage_per_second = auto_damage_per_second  --Optional. Damages this much per second
+  health.death_callback_fn = death_callback_fn  --Optional. Function to call when health drops below 0
+  health.damage_sfx = damage_sfx  -- Optional. Index of SFX to play on damage
 
+  -- Optional params to change sprite on low health
   health.low_health_amount = low_health_amount
   health.low_health_sprite = low_health_sprite
 
@@ -2029,6 +2245,7 @@ function make_health(parent,
       self.time_since_last_damage += DELTA_TIME
     end
     if self.auto_damage_per_second and self.auto_dps_active then
+      -- Hurt ourselves every second
       self.time_since_last_autodamage += DELTA_TIME
       if (self.time_since_last_autodamage > 1.0) then
         self.time_since_last_autodamage = 0
@@ -2043,14 +2260,17 @@ function make_health(parent,
       self.time_since_last_damage = 0
 
       if self.damage_sfx and play_sfx ~= false then
+        -- Play damaged audio
         sfx(self.damage_sfx)
       end
 
       if low_health_sprite and self.health < self.low_health_amount then
+        -- Update the sprite when health is low
         self.parent.sprite = self.low_health_sprite
       end
 
       if self.health <= 0.0 and self.death_callback_fn then
+        -- Do death callback function when dead
         self.death_callback_fn(self.parent)
       end
     end
@@ -2066,6 +2286,8 @@ end
 
 
 function make_do_for(parent, duration, callback_fn, expired_fn)
+  -- Calls a callback function n amount of times per second(default is every frame) until duration expires
+  -- Call start() to start the timer
   local do_for = {}
 
   do_for.parent = parent
@@ -2101,11 +2323,14 @@ function make_do_for(parent, duration, callback_fn, expired_fn)
   return do_for
 end
 
+-- Linear Interpolation functions
 function lerp(a, b, t)
+  -- Does a linear interpolation between two points
   return a + (b - a) * t
 end
 
 function bounce(a, b, t)
+  -- Does a bounce interpolation between two points
   local x
   if t <= 1/2.75 then
     x = 7.5625 * t * t
@@ -2119,6 +2344,7 @@ function bounce(a, b, t)
   return lerp(a, b, x)
 end
 
+-- Palette functions
 function set_palette(palette)
   if palette == PALETTE_ORANGE then
     return
@@ -2130,7 +2356,7 @@ function set_palette(palette)
     pal(9,  1)
     pal(10, 12)
     pal(15, 6)  
-    pal(4, 0)
+    pal(4, 0) -- Additionally change dark brown for blue palette
   elseif palette == PALETTE_GREY then
     pal(9,  5)
     pal(10, 6)
@@ -2139,7 +2365,7 @@ function set_palette(palette)
     pal(9,  8)
     pal(10, 6)
     pal(15, 2)
-    pal(7,  0)
+    pal(7,  0) -- Additionally change white to black for black palette
   end
 end
 
@@ -2151,6 +2377,7 @@ function reset_palette()
   pal(7, 7)
 end
 
+-- Vector functions
 function v_add(v1, v2)
   return {v1[1] + v2[1], v1[2] + v2[2]}
 end
@@ -2173,10 +2400,14 @@ function v_normalized(v)
 end
 
 function lines_overlapping(min1, max1, min2, max2)
+  -- Checks if 2 parallel lines are overlapping two other parallel lines
   return max1 > min2 and max2 > min1
 end
 
+-- Rect functions
+
 function rects_are_colliding(r1, r2)
+  -- Determines if two rects are colliding
   local top = r1.y
   local bottom = top + r1.h
   local left = r1.x
@@ -2192,7 +2423,9 @@ function rects_are_colliding(r1, r2)
   return horizontal_collision and vertical_collision
 end
 
+-- Utility functions
 function sort_table_by_pos(a, pos_index)
+  -- pos_index should be an integer 1 or 2 denoting the x or y coord to sort by
   for i=1,#a do
     local j = i
       while j > 1 and a[j-1].pos[pos_index] > a[j].pos[pos_index] do
@@ -2203,6 +2436,7 @@ function sort_table_by_pos(a, pos_index)
 end
 
 function merge_tables(t1, t2)
+  -- merges the second table into the first
   i = #t1 + 1
   for _, v in pairs(t2) do 
     t1[i] = v 
