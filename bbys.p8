@@ -190,14 +190,14 @@ function get_splash_screen_input()
 end
 
 function draw_splash_screen()
-  rectfill(0, 0, 8*16, 8*16, 15)
+  rectfill(0, 0, 128, 128, 15)
   draw_bby_iterations(2)
 
   time_modulo = time() % 2
   if (time_modulo < 1) then
-    title_y_pos = bounce(0, 6*16, time() % 1)
+    title_y_pos = bounce(0, 96, time() % 1)
   else
-    title_y_pos = bounce(6*16, 0, time() % 1)
+    title_y_pos = bounce(96, 0, time() % 1)
   end
 
   draw_title(0, title_y_pos)
@@ -253,7 +253,7 @@ end
 
 function tile_to_pixel_pos(tile_coord)
   -- Given the coordinate of a tile, translate that to pixel values
-  return {tile_coord[1] * 8, tile_coord[2] * 8}
+  return {tile_coord[1]*8, tile_coord[2]*8}
 end
 
 function tile_pos_to_rect(tile_coord)
@@ -289,7 +289,7 @@ function make_level_manager()
 
   -- Number of stages for each level, listed sequentially
   level_manager.stage_count = {24, 27, 40, 9999, 9}
-  level_manager.map_bounds = {x=1*8, y=1*8, w=15*8, h=15*8}  -- Rect of map bounds
+  level_manager.map_bounds = {x=8, y=8, w=120, h=120}  -- Rect of map bounds
 
   level_manager.enemy_spawn_tl = {0, 0}
   level_manager.enemy_spawn_t = {8, 0}
@@ -324,7 +324,7 @@ function make_level_manager()
     make_enemies()
     make_rocks()
     make_projectiles()
-    make_boss1({8*8 + 4,3*8})
+    make_boss1({68, 24})
 
     self.stage = 1
   end
@@ -515,7 +515,7 @@ function make_level_manager()
         end
         make_rocks(rock_pos)
 
-        make_boss1({8*8 + 4,3*8})
+        make_boss1({68, 24})
         boss1.speech_do_for:start()
         self:draw_ui_msg("HEY BUDDI... I THNK MAYBE...")
         sfx(SFX_TALK)
@@ -612,7 +612,7 @@ function make_level_manager()
         sfx(SFX_HEAL_ALL_BBYS)
         self.effect_do_for.callback_fn = function(l)
           rectfill(
-            0, 0, 9*16, 9*16,
+            0, 0, 144, 144,
             7)
         boss1.animator.palette = PALETTE_GREY
         player.collide_with_boss1 = false
@@ -647,7 +647,7 @@ function make_level_manager()
       end
     elseif self.level == self.final_level then
       self.effect_do_for.callback_fn = function(l)
-        rectfill(0, 0, 9*16, 9*16, 0)
+        rectfill(0, 0, 144, 144, 0)
       end
 
       bby1=make_bby({2, 14})
