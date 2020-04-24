@@ -29,7 +29,7 @@ BBY_NAMES = {
   "NOODL", "JEFF", "GORBY", "VINNY", "BBYCAKE", "BBYJESUS", "TIPPR", "DAN", "LUA", "LUNA",
   "GOOBY", "GARFO", "BBYHITLR", "CARL", "MARI", "CONWAY", "GARTH",
   "MARK", "TOM", "SPUD", "ADRI", "LINDA", "RAINY", "FROGI", "MARSHL", "SEAN", "SANS", "ANG", "GENO",
-  "DASY", "BRIT", "KYLE", "TESS", "NIC", "NICK", "RYAN", "HALY", "TERAN", "WINDY", "KENNY"
+  "DASY", "BRIT", "KYLE", "TESS", "NIC", "NICK", "RYAN", "HALY", "TERAN", "WINDI", "KENNY"
 }
 
 TOP_COLLISION = 0
@@ -67,7 +67,6 @@ MUSIC_BITMASK = 3
 IN_SPLASH_SCREEN = true
 IN_PLAYER_LOST_SCREEN = false
 DISPLAY_NAMEBAR_UI = true
-SPLASH_SCREEN_Y_POS = 0
 LAST_CHECKED_TIME = 0.0
 DELTA_TIME = 0.0  -- time since last frame
 
@@ -90,38 +89,18 @@ function _update()
     -- Update level manager
     level_manager:update()
 
-    player:update()
+    local to_update = {player}
+    merge_tables(to_update, bbys)
+    merge_tables(to_update, enemies.enemies)
+    merge_tables(to_update, rocks.rocks)
+    merge_tables(to_update, items.items)
+    merge_tables(to_update, foods.foods)
+    merge_tables(to_update, projectiles.projectiles)
+    if boss1 then add(to_update, boss1) end
+    if heart then add(to_update, heart) end
 
-    for _, bby in pairs(bbys) do 
-      bby:update()
-    end
-
-    for _, enemy in pairs(enemies.enemies) do 
-      enemy:update()
-    end
-
-    for _, rock in pairs(rocks.rocks) do 
-      rock:update()
-    end
-
-    for _, item in pairs(items.items) do 
-      item:update()
-    end
-
-    for _, food in pairs(foods.foods) do 
-      food:update()
-    end
-
-    for _, projectile in pairs(projectiles.projectiles) do 
-      projectile:update()
-    end
-
-    if boss1 then
-      boss1:update()
-    end
-
-    if heart then
-      heart:update()
+    for _, obj in pairs(to_update) do 
+      obj:update()
     end
 
   end
@@ -614,9 +593,9 @@ function make_level_manager()
           rectfill(
             0, 0, 144, 144,
             7)
+        end
         boss1.animator.palette = PALETTE_GREY
         player.collide_with_boss1 = false
-        end
         self.effect_do_for:start()
       elseif self.stage == 3 then
         self:draw_ui_msg("...")
@@ -658,7 +637,7 @@ function make_level_manager()
       bby3.wanderer.active = false
       bby4=make_bby({14, 14}, PALETTE_GREY)
       bby4.wanderer.active = false
-      bby4.name = SHARON
+      bby4.name = 'SHARON'
     end
   end
 
