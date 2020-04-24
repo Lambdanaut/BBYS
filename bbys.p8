@@ -209,7 +209,7 @@ function draw_bby_iterations(iterations)
   x = -2
   for _ = 1, iterations do
     for _, palette in pairs(PALETTES) do
-      x = 2
+      x += 2
       y = -1
       for _, item_index in pairs(ITEM_INDEXES) do
         y += 1
