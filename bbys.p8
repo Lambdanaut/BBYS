@@ -254,7 +254,7 @@ end
 function make_level_manager()
   level_manager = {}
 
-  level_manager.level = 1
+  level_manager.level = 2
   level_manager.stage = 1  -- The progression of the current level
   level_manager.stage_duration = 5
 
