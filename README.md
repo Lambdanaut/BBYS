@@ -3,7 +3,7 @@ BBYS
 
 A PICO8 game for [ludum dare 46](https://ldjam.com)
 
-Play the demo here: https://lambdanaut.itch.io/bbys?secret=NUlT5Ed6Qz6PQk26dCnJywlzyG4
+Play the demo here: https://lambdanaut.itch.io/bbys
 
 For development
 ---------------
